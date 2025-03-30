@@ -176,3 +176,4 @@ cython_debug/
 # Repository-specific
 /*/dataset
 /*/saved_models
+/lab3/models/VQGAN/checkpoints/VQGAN.pt
