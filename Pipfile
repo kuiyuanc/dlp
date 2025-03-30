@@ -11,6 +11,7 @@ pandas = "*"
 pillow = "*"
 requests = "*"
 scipy = "*"
+tensorboard = "*"
 
 [dev-packages]
 
