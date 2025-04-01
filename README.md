@@ -9,7 +9,6 @@ NYCU 2025-spring DLP Labs
 
 ```powershell
 ssh <username>@hpclogin[01-03].cs.nycu.edu.tw
-ssh chenky2003@hpclogin02.cs.nycu.edu.tw
 ```
 
 ```powershell
