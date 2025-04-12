@@ -10,3 +10,4 @@ clean:
 
 cleanall: clean
 	-rm -rf checkpoints
+	-rm -rf Lab4_template/logs
