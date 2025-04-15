@@ -274,11 +274,11 @@ class VAE_Model(nn.Module):
 def main(args):
     os.makedirs(args.save_root, exist_ok=True)
     model = VAE_Model(args).to(args.device)
-    # model.load_checkpoint()
-    # if args.test:
-    #     model.eval()
-    # else:
-    #     model.training_stage()
+    model.load_checkpoint()
+    if args.test:
+        model.eval()
+    else:
+        model.training_stage()
 
 
 if __name__ == "__main__":
