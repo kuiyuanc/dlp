@@ -44,7 +44,8 @@ class Dataset_Dance(torchData):
         self.img_folder = []
         self.label_folder = []
 
-        data_num = len(glob('./Demo_Test/*'))
+        # data_num = len(glob('./Demo_Test/*'))
+        data_num = 5
         for i in range(data_num):
             self.img_folder.append(sorted(glob(os.path.join(root , f'test/test_img/{i}/*')), key=get_key))
             self.label_folder.append(sorted(glob(os.path.join(root , f'test/test_label/{i}/*')), key=get_key))
