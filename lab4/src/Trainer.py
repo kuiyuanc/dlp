@@ -186,12 +186,12 @@ class VAE_Model(nn.Module):
         # done
         output, mu, logvar = self(img[:, 0], img[:, 0], label[:, 0])
         kl_loss, mse_loss = kl_criterion(mu, logvar, self.batch_size), self.mse_criterion(output, img[:, 0])
-        psnr = [Generate_PSNR(output, img[:, 0])]
+        psnr = [Generate_PSNR(output.cpu(), img[:, 0].cpu())]
         for t in range(1, self.train_vi_len):
             output, mu, logvar = self(img[:, t], output, label[:, t], train=True)
             kl_loss += kl_criterion(mu, logvar, self.batch_size)
             mse_loss += self.mse_criterion(output, img[:, t])
-            psnr.append(Generate_PSNR(output, img[:, t]))
+            psnr.append(Generate_PSNR(output.cpu(), img[:, t].cpu()))
         loss = mse_loss + kl_loss * self.kl_annealing.get_beta()
         return loss, psnr
 
