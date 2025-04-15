@@ -128,8 +128,10 @@ class Test_model(VAE_Model):
         label_list = [label[0].cpu()]
 
         # done
+        output = img[0]
         for t in range(1, self.val_vi_len):
-            decoded_frame_list.append(self(decoded_frame_list[-1], label[t]).cpu())
+            output = self(output, label[t])
+            decoded_frame_list.append(output.cpu())
             label_list.append(label[t].cpu())
 
 
