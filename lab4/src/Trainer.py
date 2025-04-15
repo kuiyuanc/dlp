@@ -38,15 +38,14 @@ class kl_annealing:
         # done
         self.type: str = args.kl_anneal_type
         self.iter: int = current_epoch
-        match self.type:
-            case "Cyclical":
-                n_cycle = args.kl_anneal_cycle
-                ratio = args.kl_anneal_ratio
-                self.beta: np.ndarray = self.frange_cycle_linear(args.num_epoch, n_cycle=n_cycle, ratio=ratio)
-            case "Monotonic":
-                self.beta: np.ndarray = self.frange_cycle_linear(args.num_epoch, n_cycle=1, ratio=args.kl_anneal_ratio)
-            case "Without":
-                self.beta: np.ndarray = np.ones(args.num_epoch, dtype=np.float32)
+        if self.type == "Cyclical":
+            n_cycle = args.kl_anneal_cycle
+            ratio = args.kl_anneal_ratio
+            self.beta: np.ndarray = self.frange_cycle_linear(args.num_epoch, n_cycle=n_cycle, ratio=ratio)
+        elif self.type == "Monotonic":
+            self.beta: np.ndarray = self.frange_cycle_linear(args.num_epoch, n_cycle=1, ratio=args.kl_anneal_ratio)
+        elif self.type == "Without":
+            self.beta: np.ndarray = np.ones(args.num_epoch, dtype=np.float32)
 
     def update(self):
         # done
