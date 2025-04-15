@@ -9,5 +9,5 @@ clean:
 	-rm -rf slurm-*.out
 
 cleanall: clean
-	-rm -rf checkpoints
-	-rm -rf Lab4_template/logs
+	-rm -rf saved_models
+	-rm -rf logs

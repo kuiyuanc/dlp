@@ -7,8 +7,8 @@
 
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libcuda.so.1
 
-cd Lab4_template
-srun python3 Trainer.py --DR ../LAB4_Dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../checkpoints/tfr=0.0/kl=None --tfr 0 --tfr_d_step 0 --kl_anneal_type Without
-srun python3 Trainer.py --DR ../LAB4_Dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../checkpoints/tfr=0.0/kl=Monotonic --tfr 0 --tfr_d_step 0 --kl_anneal_type Monotonic
-srun python3 Trainer.py --DR ../LAB4_Dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../checkpoints/tfr=0.0/kl=Cyclical --tfr 0 --tfr_d_step 0
-srun python3 Trainer.py --DR ../LAB4_Dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../checkpoints/tfr=1.0/kl=None --kl_anneal_type Without
+cd src
+srun python3 Trainer.py --DR ../dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../saved_models/tfr=0.0/kl=None --tfr 0 --tfr_d_step 0 --kl_anneal_type Without
+srun python3 Trainer.py --DR ../dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../saved_models/tfr=0.0/kl=Monotonic --tfr 0 --tfr_d_step 0 --kl_anneal_type Monotonic
+srun python3 Trainer.py --DR ../dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../saved_models/tfr=0.0/kl=Cyclical --tfr 0 --tfr_d_step 0
+srun python3 Trainer.py --DR ../dataset --fast_train --store_visualization --num_workers 1 --per_save 10 --save_root ../saved_models/tfr=1.0/kl=None --kl_anneal_type Without
