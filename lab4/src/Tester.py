@@ -128,7 +128,7 @@ class Test_model(VAE_Model):
         label_list = [label[0].cpu()]
 
         # done
-        for t in range(1, self.train_vi_len):
+        for t in range(1, self.val_vi_len):
             decoded_frame_list.append(self(decoded_frame_list[-1], label[t]).cpu())
             label_list.append(label[t].cpu())
 
