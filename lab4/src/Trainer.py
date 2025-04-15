@@ -138,6 +138,7 @@ class VAE_Model(nn.Module):
                         lr=self.scheduler.get_last_lr()[0],
                     )
 
+            self.current_epoch += 1
             if self.current_epoch % self.args.per_save == 0:
                 self.save(os.path.join(self.args.save_root, f"epoch={self.current_epoch}.ckpt"))
 
@@ -150,7 +151,6 @@ class VAE_Model(nn.Module):
             self.log.add_scalar("beta", self.kl_annealing.get_beta(), self.current_epoch)
             self.log.add_scalar("tfr", self.tfr, self.current_epoch)
 
-            self.current_epoch += 1
             self.scheduler.step()
             self.teacher_forcing_ratio_update()
             self.kl_annealing.update()
