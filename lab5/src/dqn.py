@@ -113,7 +113,7 @@ class PrioritizedReplayBuffer:
 
 
 class DQNAgent:
-    def __init__(self, env_name="CartPole-v1", args=None):
+    def __init__(self, args: argparse.Namespace, env_name: str = "CartPole-v1"):
         self.env = gym.make(env_name, render_mode="rgb_array")
         self.test_env = gym.make(env_name, render_mode="rgb_array")
         assert isinstance(self.env.action_space, gym.spaces.Discrete)
