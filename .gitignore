@@ -180,3 +180,4 @@ cython_debug/
 /*/refs
 /*/wandb
 /lab3/models/VQGAN/checkpoints/VQGAN.pt
+/lab4/data
