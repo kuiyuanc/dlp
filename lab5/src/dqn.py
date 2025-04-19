@@ -205,9 +205,9 @@ class DQNAgent:
                 #     # Add additional wandb logs for debugging if needed
 
                 #     ########## END OF YOUR CODE ##########
-            print(
-                f"[Eval] Ep: {ep} Total Reward: {total_reward} SC: {self.env_count} UC: {self.train_count} Eps: {self.epsilon:.4f}"
-            )
+            # print(
+            #     f"[Eval] Ep: {ep} Total Reward: {total_reward} SC: {self.env_count} UC: {self.train_count} Eps: {self.epsilon:.4f}"
+            # )
             wandb.log(
                 {
                     "Episode": ep,
@@ -225,7 +225,7 @@ class DQNAgent:
             if ep % 100 == 0:
                 model_path = os.path.join(self.save_dir, f"model_ep{ep}.pt")
                 torch.save(self.q_net.state_dict(), model_path)
-                print(f"Saved model checkpoint to {model_path}")
+                # print(f"Saved model checkpoint to {model_path}")
 
             if ep % 20 == 0:
                 eval_reward, episode_len = self.evaluate()
@@ -233,8 +233,8 @@ class DQNAgent:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
                     torch.save(self.q_net.state_dict(), model_path)
-                    print(f"Saved new best model to {model_path} with reward {eval_reward}")
-                print(f"[TrueEval] Ep: {ep} Eval Reward: {eval_reward:.2f} SC: {self.env_count} UC: {self.train_count}")
+                    # print(f"Saved new best model to {model_path} with reward {eval_reward}")
+                # print(f"[TrueEval] Ep: {ep} Eval Reward: {eval_reward:.2f} SC: {self.env_count} UC: {self.train_count}")
                 wandb.log(
                     {
                         "Episode": ep,
