@@ -118,7 +118,9 @@ class PrioritizedReplayBuffer:
 class DQNAgent:
     def __init__(self, args: argparse.Namespace, env_name: str = "CartPole-v1"):
         self.env = gym.make(env_name, render_mode="rgb_array")
+        self.env.reset(seed=args.seed)
         self.test_env = gym.make(env_name, render_mode="rgb_array")
+        self.test_env.reset(seed=args.seed)
         assert isinstance(self.env.action_space, gym.spaces.Discrete)
         self.num_actions = int(self.env.action_space.n)
         # self.preprocessor = AtariPreprocessor()
