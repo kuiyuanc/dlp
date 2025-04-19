@@ -265,21 +265,27 @@ class DQNAgent:
 
         ########## YOUR CODE HERE (<5 lines) ##########
         # Sample a mini-batch of (s,a,r,s',done) from the replay buffer
+        states, actions, rewards, next_states, dones = zip(*self.memory.sample(self.batch_size))
 
         ########## END OF YOUR CODE ##########
 
         # Convert the states, actions, rewards, next_states, and dones into torch tensors
         # NOTE: Enable this part after you finish the mini-batch sampling
-        # states = torch.from_numpy(np.array(states).astype(np.float32)).to(self.device)
-        # next_states = torch.from_numpy(np.array(next_states).astype(np.float32)).to(self.device)
-        # actions = torch.tensor(actions, dtype=torch.int64).to(self.device)
-        # rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        # dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
-        # q_values = self.q_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        states = torch.from_numpy(np.array(states).astype(np.float32)).to(self.device)
+        next_states = torch.from_numpy(np.array(next_states).astype(np.float32)).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.int64).to(self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
+        q_values = self.q_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
 
         ########## YOUR CODE HERE (~10 lines) ##########
         # Implement the loss function of DQN and the gradient updates
-
+        with torch.no_grad():
+            target_q = rewards + self.gamma * self.target_net(next_states).amax(dim=1) * (1 - dones)
+        loss = nn.MSELoss()(q_values, target_q)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
         ########## END OF YOUR CODE ##########
 
         if self.train_count % self.target_update_frequency == 0:
@@ -288,6 +294,16 @@ class DQNAgent:
         # NOTE: Enable this part if "loss" is defined
         # if self.train_count % 1000 == 0:
         #    print(f"[Train #{self.train_count}] Loss: {loss.item():.4f} Q mean: {q_values.mean().item():.3f} std: {q_values.std().item():.3f}")
+
+        wandb.log(
+            {
+                "Env Step Count": self.env_count,
+                "Update Count": self.train_count,
+                "Loss": loss.item(),
+                "Q mean": q_values.mean().item(),
+                "Q std": q_values.std().item(),
+            }
+        )
 
 
 if __name__ == "__main__":
