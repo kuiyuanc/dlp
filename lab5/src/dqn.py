@@ -118,7 +118,7 @@ class DQNAgent:
         self.test_env = gym.make(env_name, render_mode="rgb_array")
         assert isinstance(self.env.action_space, gym.spaces.Discrete)
         self.num_actions = int(self.env.action_space.n)
-        self.preprocessor = AtariPreprocessor()
+        # self.preprocessor = AtariPreprocessor()
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Using device:", self.device)
@@ -157,7 +157,8 @@ class DQNAgent:
         for ep in range(episodes):
             obs, _ = self.env.reset()
 
-            state = self.preprocessor.reset(obs)
+            # state = self.preprocessor.reset(obs)
+            state = obs
             done = False
             total_reward = 0
             step_count = 0
@@ -167,7 +168,8 @@ class DQNAgent:
                 next_obs, reward, terminated, truncated, _ = self.env.step(action)
                 done = terminated or truncated
 
-                next_state = self.preprocessor.step(next_obs)
+                # next_state = self.preprocessor.step(next_obs)
+                next_state = next_obs
                 self.memory.append((state, action, reward, next_state, done))
 
                 for _ in range(self.train_per_step):
@@ -230,7 +232,8 @@ class DQNAgent:
 
     def evaluate(self):
         obs, _ = self.test_env.reset()
-        state = self.preprocessor.reset(obs)
+        # state = self.preprocessor.reset(obs)
+        state = obs
         done = False
         total_reward = 0
 
@@ -241,6 +244,8 @@ class DQNAgent:
             next_obs, reward, terminated, truncated, _ = self.test_env.step(action)
             done = terminated or truncated
             total_reward += float(reward)
+            # state = self.preprocessor.step(next_obs)
+            state = next_obs
 
         return total_reward
 
