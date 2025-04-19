@@ -12,10 +12,11 @@ pillow = "*"
 requests = "*"
 scipy = "*"
 tensorboard = "*"
-gymnasium = "*"
 ale-py = "*"
 wandb = "*"
 opencv-python = "*"
+imageio = "*"
+gymnasium = {extras = ["classic-control"], version = "*"}
 
 [dev-packages]
 
