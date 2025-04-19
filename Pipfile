@@ -12,6 +12,10 @@ pillow = "*"
 requests = "*"
 scipy = "*"
 tensorboard = "*"
+gymnasium = "*"
+ale-py = "*"
+wandb = "*"
+opencv-python = "*"
 
 [dev-packages]
 

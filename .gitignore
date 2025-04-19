@@ -177,4 +177,6 @@ cython_debug/
 /*/dataset
 /*/saved_models
 /*/logs
+/*/refs
+/*/wandb
 /lab3/models/VQGAN/checkpoints/VQGAN.pt
