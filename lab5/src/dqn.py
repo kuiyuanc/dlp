@@ -5,9 +5,12 @@
 
 import argparse
 import os
+import pickle
 import random
+
 # import time
 from collections import deque
+from pathlib import Path
 
 # import ale_py
 import cv2
@@ -134,6 +137,10 @@ class DQNAgent:
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.lr)
 
+        if args.model_path:
+            self.q_net.load_state_dict(torch.load(args.model_path, map_location=self.device))
+            self.target_net.load_state_dict(self.q_net.state_dict())
+
         self.batch_size = args.batch_size
         self.gamma = args.discount_factor
         self.epsilon = args.epsilon_start
@@ -152,6 +159,11 @@ class DQNAgent:
 
         self.memory = ReplayBuffer(args.memory_size)
         self.reward_scaling = args.reward_scaling
+        self.ep = 1
+
+        if args.args_path:
+            with open(args.args_path, "rb") as f:
+                self.epsilon, self.env_count, self.train_count, self.best_reward, self.ep = pickle.load(f)
 
     def select_action(self, state):
         if random.random() < self.epsilon:
@@ -161,8 +173,8 @@ class DQNAgent:
             q_values = self.q_net(state_tensor)
         return q_values.argmax().item()
 
-    def run(self, episodes=1000):
-        for ep in range(1, episodes + 1):
+    def run(self, episodes: int = 1000) -> None:
+        for ep in range(self.ep, episodes + 1):
             obs, _ = self.env.reset()
 
             # state = self.preprocessor.reset(obs)
@@ -225,6 +237,8 @@ class DQNAgent:
             if ep % 100 == 0:
                 model_path = os.path.join(self.save_dir, f"model_ep{ep}.pt")
                 torch.save(self.q_net.state_dict(), model_path)
+                with open(Path(self.save_dir, f"model_ep{ep}.pkl"), "wb") as f:
+                    pickle.dump((self.epsilon, self.env_count, self.train_count, self.best_reward, ep + 1), f)
                 # print(f"Saved model checkpoint to {model_path}")
 
             if ep % 20 == 0:
