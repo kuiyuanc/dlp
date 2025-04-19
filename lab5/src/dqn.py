@@ -154,7 +154,7 @@ class DQNAgent:
         return q_values.argmax().item()
 
     def run(self, episodes=1000):
-        for ep in range(episodes):
+        for ep in range(1, episodes + 1):
             obs, _ = self.env.reset()
 
             # state = self.preprocessor.reset(obs)
