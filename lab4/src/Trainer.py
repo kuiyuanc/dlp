@@ -189,7 +189,7 @@ class VAE_Model(nn.Module):
         output, mu, logvar = self(img[:, 0], img[:, 0], label[:, 0])
         kl_loss, mse_loss = kl_criterion(mu, logvar, self.batch_size), self.mse_criterion(output, img[:, 0])
         psnr = [Generate_PSNR(output.cpu(), img[:, 0].cpu())]
-        for t in range(1, self.train_vi_len):
+        for t in range(1, self.val_vi_len):
             output, mu, logvar = self(img[:, t], output, label[:, t], train=True)
             kl_loss += kl_criterion(mu, logvar, self.batch_size)
             mse_loss += self.mse_criterion(output, img[:, t])
