@@ -63,7 +63,9 @@ class kl_annealing:
         inc = np.arange(inc_len) * step + start
         plateau = np.ones(int(period - inc_len), dtype=np.float32)
         cycle = np.concatenate((inc, plateau))
-        return np.tile(cycle, n_cycle)
+        beta = np.tile(cycle, n_cycle)
+        beta[0] = step + start
+        return beta
 
 
 class VAE_Model(nn.Module):
