@@ -211,6 +211,7 @@ class DQNAgent:
             wandb.log(
                 {
                     "Episode": ep,
+                    "Train Episode Length": step_count,
                     "Total Reward": total_reward,
                     "Env Step Count": self.env_count,
                     "Update Count": self.train_count,
@@ -227,7 +228,7 @@ class DQNAgent:
                 print(f"Saved model checkpoint to {model_path}")
 
             if ep % 20 == 0:
-                eval_reward = self.evaluate()
+                eval_reward, episode_len = self.evaluate()
                 if eval_reward > self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
@@ -235,7 +236,13 @@ class DQNAgent:
                     print(f"Saved new best model to {model_path} with reward {eval_reward}")
                 print(f"[TrueEval] Ep: {ep} Eval Reward: {eval_reward:.2f} SC: {self.env_count} UC: {self.train_count}")
                 wandb.log(
-                    {"Env Step Count": self.env_count, "Update Count": self.train_count, "Eval Reward": eval_reward}
+                    {
+                        "Episode": ep,
+                        "Env Step Count": self.env_count,
+                        "Update Count": self.train_count,
+                        "Eval Reward": eval_reward,
+                        "Eval Episode Length": episode_len,
+                    }
                 )
 
     def evaluate(self):
@@ -244,6 +251,7 @@ class DQNAgent:
         state = obs
         done = False
         total_reward = 0
+        step_count = 0
 
         while not done:
             state_tensor = torch.from_numpy(np.array(state)).float().unsqueeze(0).to(self.device)
@@ -254,8 +262,9 @@ class DQNAgent:
             total_reward += float(reward)
             # state = self.preprocessor.step(next_obs)
             state = next_obs
+            step_count += 1
 
-        return total_reward
+        return total_reward, step_count
 
     def train(self):
         if len(self.memory) < self.replay_start_size:
