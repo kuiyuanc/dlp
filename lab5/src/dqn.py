@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import wandb
+from replay import ReplayBuffer
 
 # gym.register_envs(ale_py)
 
@@ -144,6 +145,8 @@ class DQNAgent:
         self.train_per_step = args.train_per_step
         self.save_dir = args.save_dir
         os.makedirs(self.save_dir, exist_ok=True)
+
+        self.memory = ReplayBuffer(args.memory_size)
 
     def select_action(self, state):
         if random.random() < self.epsilon:
