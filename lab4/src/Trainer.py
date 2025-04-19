@@ -112,7 +112,7 @@ class VAE_Model(nn.Module):
         return output, mu, logvar
 
     def training_stage(self):
-        for i in range(self.args.num_epoch):
+        for _ in range(self.args.num_epoch):
             train_loader = self.train_dataloader()
             adapt_TeacherForcing = True if random.random() < self.tfr else False
             loss_train = 0
