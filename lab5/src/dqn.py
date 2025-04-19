@@ -116,7 +116,8 @@ class DQNAgent:
     def __init__(self, env_name="CartPole-v1", args=None):
         self.env = gym.make(env_name, render_mode="rgb_array")
         self.test_env = gym.make(env_name, render_mode="rgb_array")
-        self.num_actions = self.env.action_space.n
+        assert isinstance(self.env.action_space, gym.spaces.Discrete)
+        self.num_actions = int(self.env.action_space.n)
         self.preprocessor = AtariPreprocessor()
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -173,7 +174,7 @@ class DQNAgent:
                     self.train()
 
                 state = next_state
-                total_reward += reward
+                total_reward += float(reward)
                 self.env_count += 1
                 step_count += 1
 
@@ -239,8 +240,7 @@ class DQNAgent:
                 action = self.q_net(state_tensor).argmax().item()
             next_obs, reward, terminated, truncated, _ = self.test_env.step(action)
             done = terminated or truncated
-            total_reward += reward
-            state = self.preprocessor.step(next_obs)
+            total_reward += float(reward)
 
         return total_reward
 
