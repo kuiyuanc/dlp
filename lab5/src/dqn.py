@@ -6,10 +6,10 @@
 import argparse
 import os
 import random
-import time
+# import time
 from collections import deque
 
-import ale_py
+# import ale_py
 import cv2
 import gymnasium as gym
 import numpy as np
@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.optim as optim
 import wandb
 
-gym.register_envs(ale_py)
+# gym.register_envs(ale_py)
 
 
 def init_weights(m):
@@ -178,23 +178,23 @@ class DQNAgent:
                 self.env_count += 1
                 step_count += 1
 
-                if self.env_count % 1000 == 0:
-                    print(
-                        f"[Collect] Ep: {ep} Step: {step_count} SC: {self.env_count} UC: {self.train_count} Eps: {self.epsilon:.4f}"
-                    )
-                    wandb.log(
-                        {
-                            "Episode": ep,
-                            "Step Count": step_count,
-                            "Env Step Count": self.env_count,
-                            "Update Count": self.train_count,
-                            "Epsilon": self.epsilon,
-                        }
-                    )
-                    ########## YOUR CODE HERE  ##########
-                    # Add additional wandb logs for debugging if needed
+                # if self.env_count % 1000 == 0:
+                #     print(
+                #         f"[Collect] Ep: {ep} Step: {step_count} SC: {self.env_count} UC: {self.train_count} Eps: {self.epsilon:.4f}"
+                #     )
+                #     wandb.log(
+                #         {
+                #             "Episode": ep,
+                #             "Step Count": step_count,
+                #             "Env Step Count": self.env_count,
+                #             "Update Count": self.train_count,
+                #             "Epsilon": self.epsilon,
+                #         }
+                #     )
+                #     ########## YOUR CODE HERE  ##########
+                #     # Add additional wandb logs for debugging if needed
 
-                    ########## END OF YOUR CODE ##########
+                #     ########## END OF YOUR CODE ##########
             print(
                 f"[Eval] Ep: {ep} Total Reward: {total_reward} SC: {self.env_count} UC: {self.train_count} Eps: {self.epsilon:.4f}"
             )
