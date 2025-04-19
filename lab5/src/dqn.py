@@ -37,7 +37,7 @@ class DQN(nn.Module):
     - Feel free to add any member variables/functions whenever needed
     """
 
-    def __init__(self, num_actions):
+    def __init__(self, num_actions: int, input_dim: int = 4):
         super(DQN, self).__init__()
         # An example:
         # self.network = nn.Sequential(
@@ -48,6 +48,8 @@ class DQN(nn.Module):
         #    nn.Linear(64, num_actions)
         # )
         ########## YOUR CODE HERE (5~10 lines) ##########
+        layers = (nn.Linear(input_dim, 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, num_actions))
+        self.network = nn.Sequential(*layers)
 
         ########## END OF YOUR CODE ##########
 
