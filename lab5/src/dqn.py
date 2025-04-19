@@ -151,6 +151,7 @@ class DQNAgent:
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.memory = ReplayBuffer(args.memory_size)
+        self.reward_scaling = args.reward_scaling
 
     def select_action(self, state):
         if random.random() < self.epsilon:
@@ -177,7 +178,7 @@ class DQNAgent:
 
                 # next_state = self.preprocessor.step(next_obs)
                 next_state = next_obs
-                self.memory.append((state, action, reward, next_state, done))
+                self.memory.append((state, action, reward * self.reward_scaling, next_state, done))
 
                 for _ in range(self.train_per_step):
                     self.train()
