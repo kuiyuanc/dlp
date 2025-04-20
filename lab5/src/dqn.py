@@ -138,8 +138,9 @@ class DQNAgent:
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.lr)
 
         if args.model_path:
-            self.q_net.load_state_dict(torch.load(args.model_path, map_location=self.device))
-            self.target_net.load_state_dict(self.q_net.state_dict())
+            state_dict = torch.load(args.model_path, map_location=self.device)
+            self.q_net.load_state_dict(state_dict["q_net"])
+            self.target_net.load_state_dict(state_dict["target_net"])
 
         self.batch_size = args.batch_size
         self.gamma = args.discount_factor
@@ -236,7 +237,7 @@ class DQNAgent:
             ########## END OF YOUR CODE ##########
             if ep % 100 == 0:
                 model_path = os.path.join(self.save_dir, f"model_ep{ep}.pt")
-                torch.save(self.q_net.state_dict(), model_path)
+                torch.save({"q_net": self.q_net.state_dict(), "target_net": self.target_net.state_dict()}, model_path)
                 with open(Path(self.save_dir, f"model_ep{ep}.pkl"), "wb") as f:
                     pickle.dump((self.epsilon, self.env_count, self.train_count, self.best_reward, ep + 1), f)
                 # print(f"Saved model checkpoint to {model_path}")
@@ -246,7 +247,7 @@ class DQNAgent:
                 if eval_reward > self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
-                    torch.save(self.q_net.state_dict(), model_path)
+                    torch.save({"q_net": self.q_net.state_dict()}, model_path)
                     # print(f"Saved new best model to {model_path} with reward {eval_reward}")
                 # print(f"[TrueEval] Ep: {ep} Eval Reward: {eval_reward:.2f} SC: {self.env_count} UC: {self.train_count}")
                 wandb.log(
