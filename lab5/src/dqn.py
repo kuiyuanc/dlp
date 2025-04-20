@@ -91,29 +91,41 @@ class PrioritizedReplayBuffer:
     See the paper (Schaul et al., 2016) at https://arxiv.org/abs/1511.05952
     """
 
-    def __init__(self, capacity, alpha=0.6, beta=0.4):
+    def __init__(self, capacity, alpha: float = 0.6, beta: float = 0.4, epsilon: float = 0.01):
         self.capacity = capacity
         self.alpha = alpha
         self.beta = beta
-        self.buffer = []
+        self.buffer = [None] * capacity
         self.priorities = np.zeros((capacity,), dtype=np.float32)
         self.pos = 0
+        self.epsilon = epsilon
+        self.len = 0
 
-    def add(self, transition, error):
+    def __len__(self) -> int:
+        return self.len
+
+    def append(self, transition: tuple, error: float) -> None:
         ########## YOUR CODE HERE (for Task 3) ##########
-
+        self.buffer[self.pos] = transition
+        self.priorities[self.pos] = (abs(error) + self.epsilon) ** self.alpha
+        self.pos = (self.pos + 1) % self.capacity
+        self.len = min(self.capacity, self.len + 1)
         ########## END OF YOUR CODE (for Task 3) ##########
         return
 
-    def sample(self, batch_size):
+    def sample(self, batch_size: int) -> tuple:
         ########## YOUR CODE HERE (for Task 3) ##########
-
+        p = self.priorities / self.priorities.sum()
+        indices = np.random.choice(self.len, batch_size, p=p[:self.len])
+        weights = (self.len * p[indices]) ** (-self.beta)
+        weights /= weights.max()
+        samples = (self.buffer[i] for i in indices)
         ########## END OF YOUR CODE (for Task 3) ##########
-        return
+        return samples, indices, weights
 
-    def update_priorities(self, indices, errors):
+    def update_priorities(self, indices: np.ndarray, errors: np.ndarray) -> None:
         ########## YOUR CODE HERE (for Task 3) ##########
-
+        self.priorities[indices] = (abs(errors) + self.epsilon) ** self.alpha
         ########## END OF YOUR CODE (for Task 3) ##########
         return
 
