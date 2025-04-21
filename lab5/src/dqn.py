@@ -351,12 +351,12 @@ class DQNAgent:
 
     @torch.no_grad()
     def _target_q_vanilla(self, rewards, next_states: torch.Tensor, dones, gammas=None) -> torch.Tensor:
-        gammas = gammas if gammas else self.gamma
+        gammas = self.gamma if gammas is None else gammas
         return rewards + (1 - dones) * gammas * self.target_net(next_states).amax(dim=1)
 
     @torch.no_grad()
     def _target_q_double(self, rewards, next_states: torch.Tensor, dones, gammas=None) -> torch.Tensor:
-        gammas = gammas if gammas else self.gamma
+        gammas = self.gamma if gammas is None else gammas
         next_actions = self.q_net(next_states).argmax(1, keepdim=True)
         next_target_q = self.target_net(next_states).gather(1, next_actions).squeeze_(1)
         return rewards + (1 - dones) * gammas * next_target_q
