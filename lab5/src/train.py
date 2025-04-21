@@ -1,5 +1,4 @@
 import argparse
-from math import inf
 import random
 import time
 from pathlib import Path
