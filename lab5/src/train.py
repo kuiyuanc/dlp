@@ -91,7 +91,7 @@ def sweep(args, wandb_project):
             "beta": {"min": 0.3, "max": 0.5},
             "return_steps": {"values": [3, 5]},
         },
-        "early_terminate": {"type": "hyperband", "min_iter": 50_000 * args.train_per_step, "eta": 3},
+        "early_terminate": {"type": "hyperband", "min_iter": 16, "eta": 3},
     }
     args.sweep_id = args.sweep_id if args.sweep_id else wandb.sweep(sweep=sweep_config, project=wandb_project)
     wandb.agent(args.sweep_id, function=train, count=args.num_sweep)
