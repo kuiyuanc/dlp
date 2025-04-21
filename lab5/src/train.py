@@ -42,6 +42,10 @@ def get_args():
     parser.add_argument("--load-model", type=str, default=None)
     parser.add_argument("--wandb-id", type=str, default=str(int(time.time())))
 
+    parser.add_argument("--sweep", action="store_true")
+    parser.add_argument("--num-sweep", type=int, default=9)
+    parser.add_argument("--sweep-id", type=str, default=None)
+
     return parser.parse_args()
 
 
@@ -51,19 +55,55 @@ def set_seed(seed: int):
     torch.manual_seed(seed)
 
 
-def main():
+def train():
     args = get_args()
     set_seed(args.seed)
 
     wandb_project, enhance, _, _, Agent = config(task=args.task)
     id = args.wandb_id
     wandb.init(project=wandb_project, name=id, config=dict(args._get_kwargs()), id=id, resume="allow")
+
+    args.batch_size = wandb.config.get("batch_size", args.batch_size)
+    args.lr = wandb.config.get("lr", args.lr)
+    args.epsilon_decay = wandb.config.get("epsilon_decay", args.epsilon_decay)
+    args.alpha = wandb.config.get("alpha", args.alpha)
+    args.beta = wandb.config.get("beta", args.beta)
+    args.return_steps = wandb.config.get("return_steps", args.return_steps)
+
     args.save_dir = Path(args.save_dir, wandb_project, enhance, id)
     args.model_path = Path(args.save_dir, f"{args.load_model}.pt") if args.load_model else None
     args.args_path = Path(args.save_dir, f"{args.load_model}.pkl") if args.load_model else None
     agent = Agent(args)
     agent.run(args.num_episodes)
     wandb.finish()
+
+
+def sweep(args, wandb_project):
+    sweep_config = {
+        "method": "bayes",
+        "name": "sweep",
+        "metric": {"goal": "maximize", "name": "Eval Reward"},
+        "parameters": {
+            "batch_size": {"values": [32, 64]},
+            "lr": {"max": 1e-4, "min": 1e-5},
+            "epsilon_decay": {"max": 1 - 5e-7, "min": 1 - 5e-6},
+            "alpha": {"min": 0.4, "max": 0.7},
+            "beta": {"min": 0.3, "max": 0.5},
+            "return_steps": {"values": [3, 5]},
+        },
+        "early_terminate": {"type": "hyperband", "min_iter": 50_000 * args.train_per_step, "eta": 3},
+    }
+    args.sweep_id = args.sweep_id if args.sweep_id else wandb.sweep(sweep=sweep_config, project=wandb_project)
+    wandb.agent(args.sweep_id, function=train, count=args.num_sweep)
+
+
+def main():
+    args = get_args()
+    wandb_project, _, _, _, _ = config(task=args.task)
+    if args.sweep:
+        sweep(args, wandb_project)
+    else:
+        train()
 
 
 if __name__ == "__main__":
