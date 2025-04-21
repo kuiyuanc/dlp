@@ -51,15 +51,21 @@ class RainbowConvDQNAgent(ConvDQNAgent):
 
             while not done and step_count < self.max_episode_steps:
                 action = self.select_action(state)
+                segment_reward = 0
 
-                next_obs, reward, terminated, truncated, _ = self.env.step(action)
-                done = terminated or truncated
+                for _ in range(self.skip_frames):
+                    next_obs, reward, terminated, truncated, _ = self.env.step(action)
+                    done = terminated or truncated
 
-                next_state = self.preprocessor.step(next_obs)
+                    segment_reward += reward * self.reward_scaling
+                    next_state = self.preprocessor.step(next_obs)
+
+                    if done:
+                        break
 
                 states.append(np.asarray(state, dtype=np.float32))
                 actions.append(action)
-                rewards.append(reward * self.reward_scaling)
+                rewards.append(segment_reward)
 
                 if len(states) == self.return_steps:
                     state_tensor = torch.from_numpy(states[0]).to(self.device).unsqueeze_(0)
@@ -82,7 +88,7 @@ class RainbowConvDQNAgent(ConvDQNAgent):
                     self.train()
 
                 state = next_state
-                total_reward += float(reward)
+                total_reward += segment_reward
                 self.env_count += 1
                 step_count += 1
 

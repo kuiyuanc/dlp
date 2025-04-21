@@ -175,6 +175,7 @@ class DQNAgent:
 
         self.memory = ReplayBuffer(args.memory_size)
         self.reward_scaling = args.reward_scaling
+        self.skip_frames = args.skip_frames
         self.ep = 1
 
         if args.args_path:
