@@ -108,7 +108,7 @@ def evaluate(args, DQN: type, env_name: str, atari: bool) -> float:
         with imageio.get_writer(out_path, fps=30) as video:
             for f in frames:
                 f = cv2.resize(f, (592, 400))  # for video compatibility with most codecs and players
-                video.append_data(f)
+                video.append_data(f)  # type: ignore
         print(f"Saved episode {ep:2d} with total reward {total_reward} → {out_path}")
 
         sum_reward += total_reward
