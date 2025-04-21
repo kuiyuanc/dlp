@@ -70,6 +70,7 @@ def evaluate(args):
     env.observation_space.seed(args.seed)
 
     preprocessor = AtariPreprocessor()
+    assert isinstance(env.action_space, gym.spaces.Discrete)
     num_actions = env.action_space.n
 
     model = DQN(4, num_actions).to(device)
@@ -96,7 +97,7 @@ def evaluate(args):
 
             next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
-            total_reward += reward
+            total_reward += float(reward)
             state = preprocessor.step(next_obs)
             frame_idx += 1
 
