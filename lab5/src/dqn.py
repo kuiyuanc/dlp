@@ -129,6 +129,9 @@ class PrioritizedReplayBuffer:
         ########## END OF YOUR CODE (for Task 3) ##########
         return
 
+    def beta_anneal(self, step=6e-6) -> None:
+        self.beta = min(1, self.beta + step)
+
 
 class DQNAgent:
     def __init__(self, args: argparse.Namespace, env_name: str = "CartPole-v1"):
