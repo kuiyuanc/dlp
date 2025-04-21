@@ -6,7 +6,6 @@
 import argparse
 import os
 import pickle
-from collections import deque
 from pathlib import Path
 
 import ale_py
@@ -36,8 +35,6 @@ class RainbowConvDQNAgent(ConvDQNAgent):
 
     def run(self, episodes: int = 1000) -> None:
         for ep in range(self.ep, episodes + 1):
-            discount = self.gamma**self.return_steps
-
             obs, _ = self.env.reset()
 
             state = self.preprocessor.reset(obs)
@@ -45,9 +42,7 @@ class RainbowConvDQNAgent(ConvDQNAgent):
             total_reward = 0
             step_count = 0
 
-            states = deque(maxlen=self.return_steps)
-            actions = deque(maxlen=self.return_steps)
-            rewards = deque(maxlen=self.return_steps)
+            states, actions, rewards = [], [], []
 
             while not done and step_count < self.max_episode_steps:
                 action = self.select_action(state)
@@ -63,66 +58,48 @@ class RainbowConvDQNAgent(ConvDQNAgent):
                     if done:
                         break
 
-                states.append(np.asarray(state, dtype=np.float32))
+                states.append(state)
                 actions.append(action)
                 rewards.append(segment_reward)
-
-                if len(states) == self.return_steps:
-                    state_tensor = torch.from_numpy(states[0]).to(self.device).unsqueeze_(0)
-                    next_state_ndarray = np.asarray(next_state, dtype=np.float32)
-                    next_state_tensor = torch.from_numpy(next_state_ndarray).to(self.device).unsqueeze_(0)
-                    action_tensor = torch.tensor(actions[0], dtype=torch.int64).to(self.device).unsqueeze_(0)
-                    multi_step_reward = np.dot(rewards, self.discount)
-
-                    with torch.no_grad():
-                        q_value = self.q_net(state_tensor).gather(1, action_tensor.unsqueeze_(1)).item()
-                        next_action = self.q_net(next_state_tensor).argmax(1, keepdim=True)
-                        next_target_q = self.target_net(next_state_tensor).gather(1, next_action).item()
-
-                    target_q = multi_step_reward + (1 - done) * discount * next_target_q
-                    error = target_q - q_value
-                    transition = (states[0], actions[0], multi_step_reward, next_state_ndarray, done, discount)
-                    self.memory.append(transition, error)
-
-                for _ in range(self.train_per_step):
-                    self.train()
 
                 state = next_state
                 total_reward += segment_reward
                 self.env_count += 1
                 step_count += 1
 
-            if len(states) == self.return_steps:
-                states.popleft()
-                actions.popleft()
-                rewards.popleft()
+            next_states = states[self.return_steps :] + [next_state] * self.return_steps
+            dones = [False] * (len(states) - self.return_steps) + [done] * self.return_steps
 
-            discount = self.gamma ** len(states)
-            next_state_ndarray = np.asarray(next_state, dtype=np.float32)
-            next_state_tensor = torch.from_numpy(next_state_ndarray).to(self.device).unsqueeze_(0)
-            rewards = np.asarray(rewards, dtype=np.float32)
+            n = len(states)
+            gammas = np.ones((n,), dtype=np.float32) * self.return_steps
+            gammas[-self.return_steps :] -= np.arange(self.return_steps, dtype=np.float32)
+            gammas = self.gamma**gammas
+
+            multi_step_rewards = np.zeros((n, self.return_steps), dtype=np.float32)
+            for i in range(n):
+                end = min(self.return_steps, n - i)
+                multi_step_rewards[i, :end] = rewards[i : i + end]
+            rewards = (multi_step_rewards @ self.discount) * self.reward_scaling
+
+            states_tensor = torch.from_numpy(np.asarray(states, dtype=np.float32)).to(self.device)
+            next_states_tensor = torch.from_numpy(np.asarray(next_states, dtype=np.float32)).to(self.device)
+            actions_tensor = torch.tensor(actions, dtype=torch.int64).to(self.device)
+            rewards_tensor = torch.from_numpy(rewards).to(self.device)
+            dones_tensor = torch.tensor(dones, dtype=torch.float32).to(self.device)
+            gammas_tensor = torch.from_numpy(gammas).to(self.device)
 
             with torch.no_grad():
-                next_action = self.q_net(next_state_tensor).argmax(1, keepdim=True)
-                next_target_q = self.target_net(next_state_tensor).gather(1, next_action).item()
+                q_values = self.q_net(states_tensor).gather(1, actions_tensor.unsqueeze_(1)).squeeze_(1)
+                next_actions = self.q_net(next_states_tensor).argmax(1, keepdim=True)
+                next_target_q = self.target_net(next_states_tensor).gather(1, next_actions).squeeze_(1)
+                target_q = rewards_tensor + gammas_tensor * next_target_q * (1 - dones_tensor)
+                errors = target_q - q_values
 
-            for i in range(len(states)):
-                state_tensor = torch.from_numpy(states[i]).to(self.device).unsqueeze_(0)
-                action_tensor = torch.tensor(actions[i], dtype=torch.int64).to(self.device).unsqueeze_(0)
-                multi_step_reward = np.dot(rewards[i:], self.discount[: len(states) - i])
+            for record, error in zip(zip(states, actions, rewards, next_states, dones, gammas), errors):
+                self.memory.append(record, error)
 
-                with torch.no_grad():
-                    q_value = self.q_net(state_tensor).gather(1, action_tensor.unsqueeze_(1)).item()
-
-                target_q = multi_step_reward + (1 - done) * discount * next_target_q
-                error = target_q - q_value
-                transition = (states[i], actions[i], multi_step_reward, next_state_ndarray, done, discount)
-                self.memory.append(transition, error)
-
-                for _ in range(self.train_per_step):
-                    self.train()
-
-                discount /= self.gamma
+            for _ in range(self.train_per_step * n):
+                self.train()
 
             wandb.log(
                 {
