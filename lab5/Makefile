@@ -5,6 +5,7 @@ ATARI_CONFIG    = --batch-size 64 --memory-size 50000 --lr 0.00025 --gamma 0.99 
 
 train1:
 	pipenv run py src/train.py --task 1 $(CARTPOLE_CONFIG) $(ARGS)
+	pipenv run py src/train.py --task 1 $(CARTPOLE_CONFIG) $(ARGS) --double
 
 train2:
 	pipenv run py src/train.py --task 2 $(ATARI_CONFIG) $(ARGS)
