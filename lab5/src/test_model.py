@@ -13,24 +13,25 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-class DQN(nn.Module):
-    def __init__(self, input_channels, num_actions):
-        super(DQN, self).__init__()
-        self.network = nn.Sequential(
-            nn.Conv2d(input_channels, 32, kernel_size=8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(64 * 7 * 7, 512),
-            nn.ReLU(),
-            nn.Linear(512, num_actions),
-        )
+# class DQN(nn.Module):
+#     def __init__(self, input_channels, num_actions):
+#         super(DQN, self).__init__()
+#         self.network = nn.Sequential(
+#             nn.Conv2d(input_channels, 32, kernel_size=8, stride=4),
+#             nn.ReLU(),
+#             nn.Conv2d(32, 64, kernel_size=4, stride=2),
+#             nn.ReLU(),
+#             nn.Conv2d(64, 64, kernel_size=3, stride=1),
+#             nn.ReLU(),
+#             nn.Flatten(),
+#             nn.Linear(64 * 7 * 7, 512),
+#             nn.ReLU(),
+#             nn.Linear(512, num_actions),
+#         )
 
-    def forward(self, x):
-        return self.network(x / 255.0)
+
+#     def forward(self, x):
+#         return self.network(x / 255.0)
 
 
 class AtariPreprocessor:
@@ -58,14 +59,14 @@ class AtariPreprocessor:
         return stacked
 
 
-def evaluate(args):
+def evaluate(args, DQN: type, env_name: str, atari: bool) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    env = gym.make("ALE/Pong-v5", render_mode="rgb_array")
+    env = gym.make(f"ALE/{env_name}" if atari else env_name, render_mode="rgb_array")
     env.action_space.seed(args.seed)
     env.observation_space.seed(args.seed)
 
@@ -73,15 +74,16 @@ def evaluate(args):
     assert isinstance(env.action_space, gym.spaces.Discrete)
     num_actions = env.action_space.n
 
-    model = DQN(4, num_actions).to(device)
-    model.load_state_dict(torch.load(args.model_path, map_location=device))
+    # model = DQN(4, num_actions).to(device)
+    model = DQN(num_actions).to(device)
+    model.load_state_dict(torch.load(args.model_path, map_location=device)["q_net"])
     model.eval()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     for ep in range(args.episodes):
         obs, _ = env.reset(seed=args.seed + ep)
-        state = preprocessor.reset(obs)
+        state = preprocessor.reset(obs) if atari else obs
         done = False
         total_reward = 0
         frames = []
@@ -98,7 +100,7 @@ def evaluate(args):
             next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
             total_reward += float(reward)
-            state = preprocessor.step(next_obs)
+            state = preprocessor.step(next_obs) if atari else next_obs
             frame_idx += 1
 
         out_path = os.path.join(args.output_dir, f"eval_ep{ep}.mp4")
