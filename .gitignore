@@ -179,5 +179,6 @@ cython_debug/
 /*/logs
 /*/refs
 /*/wandb
+/*/eval_videos
 /lab3/models/VQGAN/checkpoints/VQGAN.pt
 /lab4/data
