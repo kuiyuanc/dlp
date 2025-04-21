@@ -2,6 +2,7 @@ import argparse
 import os
 import random
 from collections import deque
+from pathlib import Path
 
 import ale_py
 import cv2
@@ -11,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+from util import config
 
 # class DQN(nn.Module):
 #     def __init__(self, input_channels, num_actions):
@@ -119,12 +120,69 @@ def evaluate(args, DQN: type, env_name: str, atari: bool) -> float:
     return mean_reward
 
 
-if __name__ == "__main__":
+def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-path", type=str, required=True, help="Path to trained .pt model")
+
+    # parser.add_argument("--model-path", type=str, required=True, help="Path to trained .pt model")
+    parser.add_argument("--model-dir", type=str, default="./saved_models", help="Directory containing best_model.pt")
     parser.add_argument("--output-dir", type=str, default="./eval_videos")
     # parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--episodes", type=int, default=20)
     parser.add_argument("--seed", type=int, default=313551076, help="Random seed for evaluation")
-    args = parser.parse_args()
-    evaluate(args)
+
+    parser.add_argument("--task", "-t", type=int, default=0)
+    parser.add_argument("--wandb-id", type=str, default=None)
+
+    return parser.parse_args()
+
+
+def eval_task(task: int) -> None:
+    env_name, enhance, atari, DQN, _ = config(task=args.task)
+    args.output_dir = Path(args.output_dir, env_name, enhance)
+    args.model_dir = Path(args.model_dir, env_name, enhance)
+    id = args.wandb_id if args.wandb_id else max(map(lambda x: x.stem, args.model_dir.iterdir()))
+    args.output_dir = Path(args.output_dir, id)
+    args.model_dir = Path(args.model_dir, id)
+
+    if task == 3:
+        models = set(map(lambda path: path.stem, args.model_dir.iterdir()))
+        models = tuple(filter(lambda model: "best" not in model, models))
+        env_steps, rewards = zip(*map(lambda model: model.split("_")[2:], models))
+        env_steps = map(lambda x: int(x.removeprefix("step")), env_steps)
+        rewards = tuple(map(lambda x: float(x.removeprefix("reward")), rewards))
+        scores = (15, 12, 10, 8, 6, 3)
+        max_rewards = [-22.0] * len(scores)
+        max_indices = [-1] * len(scores)
+
+        for i, (env_step, reward) in enumerate(zip(env_steps, rewards)):
+            section = int(min(env_step, 1e6 + 1) / int(2e5))
+            if reward > max_rewards[section]:
+                max_rewards[section], max_indices[section] = reward, i
+
+        score = 0
+        for section, i in enumerate(max_indices):
+            if i < 0:
+                continue
+            args.model_path = Path(args.model_dir, f"{models[i]}.pt")
+            mean_reward = evaluate(args, DQN, env_name, atari)
+            if mean_reward >= 19:
+                score = scores[section]
+                break
+    elif task == 1 or task == 2:
+        args.model_path = Path(args.model_dir, "best_model.pt")
+        mean_reward = evaluate(args, DQN, env_name, atari)
+        score = min(mean_reward, 480) / 480 * 15 if task == 1 else (min(mean_reward, 19) + 21) / 40 * 20
+    else:
+        raise ValueError("Invalid task")
+
+    print(f"Score: {score:.2f}")
+
+
+if __name__ == "__main__":
+    args = get_args()
+
+    if args.task:
+        eval_task(args.task)
+    else:
+        for task in range(1, 4):
+            eval_task(task)
