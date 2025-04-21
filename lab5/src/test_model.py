@@ -106,6 +106,7 @@ def evaluate(args, DQN: type, env_name: str, atari: bool) -> None:
         out_path = os.path.join(args.output_dir, f"eval_ep{ep}.mp4")
         with imageio.get_writer(out_path, fps=30) as video:
             for f in frames:
+                f = cv2.resize(f, (592, 400))  # for video compatibility with most codecs and players
                 video.append_data(f)
         print(f"Saved episode {ep} with total reward {total_reward} → {out_path}")
 
