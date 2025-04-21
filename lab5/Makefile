@@ -13,7 +13,10 @@ train2:
 	pipenv run py src/train.py --task 2 $(ATARI_CONFIG) $(ARGS)
 
 train3:
-	pipenv run py src/train.py --task 3 $(ATARI_CONFIG) $(ARGS)
+	pipenv run py src/train.py --task 3 $(ATARI_CONFIG) $(ENHANCE_CONFIG) $(EXTRA_CONFIG) $(ARGS)
+	pipenv run py src/train.py --task 3 $(ATARI_CONFIG) --double --alpha 0.0                           --return-steps 1 $(EXTRA_CONFIG) $(ARGS)
+	pipenv run py src/train.py --task 3 $(ATARI_CONFIG)          --alpha 0.6 --beta 0.4 --epsilon 0.01 --return-steps 1 $(EXTRA_CONFIG) $(ARGS)
+	pipenv run py src/train.py --task 3 $(ATARI_CONFIG)          --alpha 0.0                           --return-steps 3 $(EXTRA_CONFIG) $(ARGS)
 
 test1:
 	pipenv run py src/test_model.py --task 1
