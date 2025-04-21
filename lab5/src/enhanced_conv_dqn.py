@@ -60,6 +60,9 @@ class RainbowConvDQNAgent(ConvDQNAgent):
                     segment_reward += reward * self.reward_scaling
                     next_state = self.preprocessor.step(next_obs)
 
+                    self.env_count += 1
+                    step_count += 1
+
                     if done:
                         break
 
@@ -87,8 +90,6 @@ class RainbowConvDQNAgent(ConvDQNAgent):
 
                 state = next_state
                 total_reward += segment_reward
-                self.env_count += 1
-                step_count += 1
 
             if len(states) == self.return_steps:
                 states.popleft()
