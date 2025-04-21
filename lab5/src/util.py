@@ -18,7 +18,7 @@ def config(*, task: int) -> tuple[str, str, bool, type, type]:
         Agent = conv_dqn.ConvDQNAgent
     elif task == 3:
         env_name = "Pong-v5"
-        enhance = "rainbow"
+        enhance = "enhanced"
         atari = True
         DQN = conv_dqn.ConvDQN
         Agent = enhanced_conv_dqn.RainbowConvDQNAgent
