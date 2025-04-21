@@ -109,7 +109,7 @@ def evaluate(args, DQN: type, env_name: str, atari: bool) -> float:
             for f in frames:
                 f = cv2.resize(f, (592, 400))  # for video compatibility with most codecs and players
                 video.append_data(f)
-        print(f"Saved episode {ep} with total reward {total_reward} → {out_path}")
+        print(f"Saved episode {ep:2d} with total reward {total_reward} → {out_path}")
 
         sum_reward += total_reward
 
