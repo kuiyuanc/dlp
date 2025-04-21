@@ -32,7 +32,7 @@ def get_args():
     parser.add_argument("--return-steps", type=int, default=3)
 
     parser.add_argument("--reward-scaling", type=float, default=1.0)
-    parser.add_argument('--skip-frames', type=int, default=4)
+    parser.add_argument("--skip-frames", type=int, default=4)
 
     parser.add_argument("--task", "-t", type=int, required=True)
     parser.add_argument("--seed", type=int, default=42)
