@@ -8,6 +8,7 @@ EXTRA_CONFIG    = --skip-frames 4
 train1:
 	pipenv run py src/train.py --task 1 $(CARTPOLE_CONFIG) $(ARGS)
 	pipenv run py src/train.py --task 1 $(CARTPOLE_CONFIG) $(ARGS) --double
+	pipenv run py src/train.py --task 1 $(CARTPOLE_CONFIG) $(ARGS) --reward-scaling -1.0
 
 train2:
 	pipenv run py src/train.py --task 2 $(ATARI_CONFIG) $(ARGS)
