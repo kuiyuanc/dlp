@@ -59,7 +59,7 @@ class AtariPreprocessor:
         return stacked
 
 
-def evaluate(args, DQN: type, env_name: str, atari: bool) -> None:
+def evaluate(args, DQN: type, env_name: str, atari: bool) -> float:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     random.seed(args.seed)
@@ -81,6 +81,7 @@ def evaluate(args, DQN: type, env_name: str, atari: bool) -> None:
 
     os.makedirs(args.output_dir, exist_ok=True)
 
+    sum_reward = 0
     for ep in range(args.episodes):
         obs, _ = env.reset(seed=args.seed + ep)
         state = preprocessor.reset(obs) if atari else obs
@@ -109,6 +110,13 @@ def evaluate(args, DQN: type, env_name: str, atari: bool) -> None:
                 f = cv2.resize(f, (592, 400))  # for video compatibility with most codecs and players
                 video.append_data(f)
         print(f"Saved episode {ep} with total reward {total_reward} → {out_path}")
+
+        sum_reward += total_reward
+
+    mean_reward = sum_reward / args.episodes
+    print(f"Average reward over {args.episodes} episodes: {mean_reward:.3f}")
+
+    return mean_reward
 
 
 if __name__ == "__main__":
