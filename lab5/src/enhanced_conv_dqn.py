@@ -76,10 +76,8 @@ class RainbowConvDQNAgent(ConvDQNAgent):
 
                     with torch.no_grad():
                         q_value = self.q_net(state_tensor).gather(1, action_tensor.unsqueeze_(1)).item()
-                        next_action = self.q_net(next_state_tensor).argmax(1, keepdim=True)
-                        next_target_q = self.target_net(next_state_tensor).gather(1, next_action).item()
+                        target_q = self.get_target_q(multi_step_reward, next_state_tensor, done, discount).item()
 
-                    target_q = multi_step_reward + (1 - done) * discount * next_target_q
                     error = target_q - q_value
                     transition = (states[0], actions[0], multi_step_reward, next_state_ndarray, done, discount)
                     self.memory.append(transition, error)
@@ -102,10 +100,6 @@ class RainbowConvDQNAgent(ConvDQNAgent):
             next_state_tensor = torch.from_numpy(next_state_ndarray).to(self.device).unsqueeze_(0)
             rewards = np.asarray(rewards, dtype=np.float32)
 
-            with torch.no_grad():
-                next_action = self.q_net(next_state_tensor).argmax(1, keepdim=True)
-                next_target_q = self.target_net(next_state_tensor).gather(1, next_action).item()
-
             for i in range(len(states)):
                 state_tensor = torch.from_numpy(states[i]).to(self.device).unsqueeze_(0)
                 action_tensor = torch.tensor(actions[i], dtype=torch.int64).to(self.device).unsqueeze_(0)
@@ -113,8 +107,8 @@ class RainbowConvDQNAgent(ConvDQNAgent):
 
                 with torch.no_grad():
                     q_value = self.q_net(state_tensor).gather(1, action_tensor.unsqueeze_(1)).item()
+                    target_q = self.get_target_q(multi_step_reward, next_state_tensor, done, discount).item()
 
-                target_q = multi_step_reward + (1 - done) * discount * next_target_q
                 error = target_q - q_value
                 transition = (states[i], actions[i], multi_step_reward, next_state_ndarray, done, discount)
                 self.memory.append(transition, error)
@@ -180,11 +174,7 @@ class RainbowConvDQNAgent(ConvDQNAgent):
         gammas = torch.tensor(gammas, dtype=torch.float32).to(self.device)
         q_values = self.q_net(states).gather(1, actions.unsqueeze_(1)).squeeze_(1)
 
-        with torch.no_grad():
-            next_actions = self.q_net(next_states).argmax(1, keepdim=True)
-            next_target_q = self.target_net(next_states).gather(1, next_actions).squeeze_(1)
-            target_q = rewards + gammas * next_target_q * (1 - dones)
-
+        target_q = self.get_target_q(rewards, next_states, dones, gammas)
         errors = target_q - q_values
         loss = (errors**2 * weights).mean()
         self.memory.update_priorities(indices, errors.detach().cpu().numpy())

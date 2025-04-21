@@ -25,6 +25,7 @@ def get_args():
     parser.add_argument("--max-episode-steps", type=int, default=10000)
     parser.add_argument("--train-per-step", type=int, default=1)
 
+    parser.add_argument("--double", action="store_true")
     parser.add_argument("--alpha", type=float, default=0.6)
     parser.add_argument("--beta", type=float, default=0.4)
     parser.add_argument("--epsilon", type=float, default=0.01)

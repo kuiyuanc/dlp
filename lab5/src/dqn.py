@@ -173,6 +173,8 @@ class DQNAgent:
         self.save_dir = args.save_dir
         os.makedirs(self.save_dir, exist_ok=True)
 
+        self.get_target_q = self._target_q_double if args.double else self._target_q_vanilla
+
         self.memory = ReplayBuffer(args.memory_size)
         self.reward_scaling = args.reward_scaling
         self.skip_frames = args.skip_frames
@@ -323,8 +325,7 @@ class DQNAgent:
 
         ########## YOUR CODE HERE (~10 lines) ##########
         # Implement the loss function of DQN and the gradient updates
-        with torch.no_grad():
-            target_q = rewards + self.gamma * self.target_net(next_states).amax(dim=1) * (1 - dones)
+        target_q = self.get_target_q(rewards, next_states, dones)
         loss = nn.MSELoss()(q_values, target_q)
         self.optimizer.zero_grad()
         loss.backward()
@@ -347,6 +348,18 @@ class DQNAgent:
                 "Q std": q_values.std().item(),
             }
         )
+
+    @torch.no_grad()
+    def _target_q_vanilla(self, rewards, next_states: torch.Tensor, dones, gammas=None) -> torch.Tensor:
+        gammas = gammas if gammas else self.gamma
+        return rewards + (1 - dones) * gammas * self.target_net(next_states).amax(dim=1)
+
+    @torch.no_grad()
+    def _target_q_double(self, rewards, next_states: torch.Tensor, dones, gammas=None) -> torch.Tensor:
+        gammas = gammas if gammas else self.gamma
+        next_actions = self.q_net(next_states).argmax(1, keepdim=True)
+        next_target_q = self.target_net(next_states).gather(1, next_actions).squeeze_(1)
+        return rewards + (1 - dones) * gammas * next_target_q
 
 
 if __name__ == "__main__":
