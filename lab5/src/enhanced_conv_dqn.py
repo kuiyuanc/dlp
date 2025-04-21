@@ -26,7 +26,7 @@ class RainbowConvDQNAgent(ConvDQNAgent):
 
         self.memory = PrioritizedReplayBuffer(args.memory_size, args.alpha, args.beta, args.epsilon)
         self.beta = args.beta
-        self.beta_step = (1 - self.beta) / args.anneal_steps
+        self.beta_step = (1 - self.beta) / args.anneal_steps if args.beta_anneal else 0
         self.return_steps = args.return_steps
         self.discount = self.gamma ** np.arange(self.return_steps, dtype=np.float32)
 

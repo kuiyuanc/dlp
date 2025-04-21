@@ -29,6 +29,7 @@ def get_args():
     parser.add_argument("--alpha", type=float, default=0.6)
     parser.add_argument("--beta", type=float, default=0.4)
     parser.add_argument("--epsilon", type=float, default=0.01)
+    parser.add_argument("--beta-anneal", action="store_true")
     parser.add_argument("--anneal-steps", type=int, default=1000000)
     parser.add_argument("--return-steps", type=int, default=3)
 
