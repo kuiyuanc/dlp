@@ -145,7 +145,8 @@ def eval_task(task: int) -> None:
     args.model_dir = Path(args.model_dir, id)
 
     if task == 3:
-        models = set(map(lambda path: path.stem, args.model_dir.iterdir()))
+        models = filter(lambda path: ".pt" in str(path), args.model_dir.iterdir())
+        models = set(map(lambda path: path.stem, models))
         models = tuple(filter(lambda model: "best" not in model, models))
         env_steps, rewards = zip(*map(lambda model: model.split("_")[2:], models))
         env_steps = map(lambda x: int(x.removeprefix("step")), env_steps)
