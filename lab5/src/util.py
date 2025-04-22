@@ -21,7 +21,7 @@ def config(*, task: int) -> tuple[str, str, bool, type, type]:
         enhance = "enhanced"
         atari = True
         DQN = conv_dqn.ConvDQN
-        Agent = enhanced_conv_dqn.RainbowConvDQNAgent
+        Agent = enhanced_conv_dqn.EnhancedConvDQNAgent
     else:
         raise ValueError("Invalid task")
 

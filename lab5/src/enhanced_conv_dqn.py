@@ -20,9 +20,9 @@ from dqn import PrioritizedReplayBuffer
 gym.register_envs(ale_py)
 
 
-class RainbowConvDQNAgent(ConvDQNAgent):
+class EnhancedConvDQNAgent(ConvDQNAgent):
     def __init__(self, args: argparse.Namespace, env_name: str = "ALE/Pong-v5"):
-        super(RainbowConvDQNAgent, self).__init__(args, env_name)
+        super(EnhancedConvDQNAgent, self).__init__(args, env_name)
 
         self.memory = PrioritizedReplayBuffer(args.memory_size, args.alpha, args.beta, args.epsilon)
         self.beta = args.beta
