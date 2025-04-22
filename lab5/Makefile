@@ -20,13 +20,13 @@ train3:
 	pipenv run py src/train.py --task 3 $(ATARI_CONFIG)          --alpha 0.0                           --return-steps 3 $(EXTRA_CONFIG) $(ARGS)
 
 test1:
-	pipenv run py src/test_model.py --task 1
+	pipenv run py src/test_model.py $(ARGS) --task 1
 
 test2:
-	pipenv run py src/test_model.py --task 2
+	pipenv run py src/test_model.py $(ARGS) --task 2
 
 test3:
-	pipenv run py src/test_model.py --task 3
+	pipenv run py src/test_model.py $(ARGS) --task 3
 
 train: train1 train2 train3
 
