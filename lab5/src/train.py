@@ -45,6 +45,7 @@ def get_args():
     parser.add_argument("--sweep", action="store_true")
     parser.add_argument("--num-sweep", type=int, default=9)
     parser.add_argument("--sweep-id", type=str, default=None)
+    parser.add_argument('--wandb-api-key', type=str, required=True)
 
     return parser.parse_args()
 
@@ -99,6 +100,7 @@ def sweep(args, wandb_project):
 
 def main():
     args = get_args()
+    wandb.login(key=args.wandb_api_key)
     wandb_project, _, _, _, _ = config(task=args.task)
     if args.sweep:
         sweep(args, wandb_project)
