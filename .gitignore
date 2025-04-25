@@ -176,6 +176,7 @@ cython_debug/
 # Repository-specific
 /*/dataset
 /*/saved_models
+/*/weights
 /*/logs
 /*/refs
 /*/wandb
