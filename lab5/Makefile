@@ -85,7 +85,3 @@ endif
 
 conn:
 	ssh chenky2003@hpclogin02.cs.nycu.edu.tw
-
-up:
-	source /opt/conda/miniconda3/bin/activate
-	conda activate dlp_lab5
