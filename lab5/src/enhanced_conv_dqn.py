@@ -160,7 +160,7 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
 
         states = torch.stack(states).to(self.device)
         next_states = torch.stack(next_states).to(self.device)
-        actions = torch.stack(actions).to(self.device).unsqueeze_(1)
+        actions = torch.stack(actions).to(self.device).unsqueeze_(0)
         rewards = torch.stack(rewards).to(self.device)
         masks = torch.stack(masks).to(self.device)
         gammas = torch.stack(gammas).to(self.device)
