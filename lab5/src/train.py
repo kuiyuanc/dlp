@@ -42,7 +42,7 @@ def sweep(args):
         config = args_to_sweep_config(args)
         prior_runs = load_prior_runs(args)
         args.sweep_id = wandb.sweep(sweep=config, project=wandb_project, prior_runs=prior_runs)
-    wandb.agent(args.sweep_id, function=train, count=args.num_sweep)
+    wandb.agent(args.sweep_id, project=wandb_project, function=train, count=args.num_sweep)
 
 
 def main():
