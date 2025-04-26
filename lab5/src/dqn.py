@@ -312,7 +312,7 @@ class DQNAgent:
         step_count = 0
 
         while not done:
-            state_tensor = torch.from_numpy(np.array(state)).float().unsqueeze_(0).to(self.device)
+            state_tensor = torch.from_numpy(np.asarray(state)).float().unsqueeze_(0).to(self.device)
             with torch.no_grad():
                 action = self.q_net(state_tensor).argmax().item()
             next_obs, reward, terminated, truncated, _ = self.test_env.step(action)
