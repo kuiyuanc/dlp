@@ -7,4 +7,4 @@
 
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libcuda.so.1
 
-nice -n 19 srun --ntasks=1 --cpus-per-task=8 --mem=8G python3 src/train.py $* --device cuda
+nice -n 19 srun --ntasks=1 --cpus-per-task=24 --mem=8G python3 src/train.py $* --device cuda
