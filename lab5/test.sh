@@ -7,4 +7,4 @@
 
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libcuda.so.1
 
-srun --ntasks=1 --cpus-per-task=24 --mem=8G python3 src/test_model.py $* --device cuda
+srun --ntasks=1 --cpus-per-task=8 --mem=8G python3 src/test_model.py $* --device cuda
