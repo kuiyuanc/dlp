@@ -91,20 +91,20 @@ class PrioritizedReplayBuffer:
     See the paper (Schaul et al., 2016) at https://arxiv.org/abs/1511.05952
     """
 
-    def __init__(self, capacity, alpha: float = 0.6, beta: float = 0.4, epsilon: float = 0.01):
-        self.capacity = capacity
-        self.alpha = alpha
-        self.beta = beta
-        self.buffer = [None] * capacity
-        self.priorities = np.zeros((capacity,), dtype=np.float32)
-        self.pos = 0
-        self.epsilon = epsilon
-        self.len = 0
+    def __init__(self, capacity: int, alpha: float = 0.6, beta: float = 0.4, epsilon: float = 0.01):
+        self.capacity: int = capacity
+        self.alpha: float = alpha
+        self.beta: float = beta
+        self.buffer: list = [None] * capacity
+        self.priorities: np.ndarray = np.zeros((capacity,), dtype=np.float32)
+        self.pos: int = 0
+        self.epsilon: float = epsilon
+        self.len: int = 0
 
     def __len__(self) -> int:
         return self.len
 
-    def append(self, transition: tuple, error: float) -> None:
+    def add(self, transition: tuple, error: float) -> None:
         ########## YOUR CODE HERE (for Task 3) ##########
         self.buffer[self.pos] = transition
         self.priorities[self.pos] = (abs(error) + self.epsilon) ** self.alpha
@@ -116,7 +116,7 @@ class PrioritizedReplayBuffer:
     def sample(self, batch_size: int) -> tuple:
         ########## YOUR CODE HERE (for Task 3) ##########
         p = self.priorities / self.priorities.sum()
-        indices = np.random.choice(self.len, batch_size, p=p[:self.len])
+        indices = np.random.choice(self.len, batch_size, p=p[: self.len])
         weights = (self.len * p[indices]) ** (-self.beta)
         weights /= weights.max()
         samples = (self.buffer[i] for i in indices)
@@ -129,9 +129,6 @@ class PrioritizedReplayBuffer:
         ########## END OF YOUR CODE (for Task 3) ##########
         return
 
-    def beta_anneal(self, step=6e-6) -> None:
-        self.beta = min(1, self.beta + step)
-
 
 class DQNAgent:
     def __init__(self, args: argparse.Namespace, env_name: str = "CartPole-v1"):
@@ -143,19 +140,29 @@ class DQNAgent:
         self.num_actions = int(self.env.action_space.n)
         # self.preprocessor = AtariPreprocessor()
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = "cuda" if torch.cuda.is_available() else "cpu"
+        if args.device.startswith("cuda"):
+            args.device = args.device if torch.cuda.is_available() else "xpu"
+        if args.device.startswith("xpu"):
+            args.device = args.device if torch.xpu.is_available() else "cpu"
+        self.device = torch.device(args.device)
         print("Using device:", self.device)
 
         self.q_net = DQN(self.num_actions).to(self.device)
         self.q_net.apply(init_weights)
         self.target_net = DQN(self.num_actions).to(self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
-        self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.lr)
+        self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.learning_rate)
 
         if args.model_path:
             state_dict = torch.load(args.model_path, map_location=self.device)
             self.q_net.load_state_dict(state_dict["q_net"])
             self.target_net.load_state_dict(state_dict["target_net"])
+
+        if self.device.type.startswith("xpu"):
+            import intel_extension_for_pytorch as ipex
+
+            self.q_net, self.optimizer = ipex.optimize(self.q_net, torch.float32, self.optimizer, inplace=True)
 
         self.batch_size = args.batch_size
         self.gamma = args.discount_factor
@@ -173,11 +180,15 @@ class DQNAgent:
         self.save_dir = args.save_dir
         os.makedirs(self.save_dir, exist_ok=True)
 
-        self.get_target_q = self._target_q_double if args.double else self._target_q_vanilla
-
         self.memory = ReplayBuffer(args.memory_size)
-        self.reward_scaling = args.reward_scaling
+
+        self.get_target_q = self._target_q_double if args.double else self._target_q_vanilla
         self.skip_frames = args.skip_frames
+        self.tau = args.tau
+
+        self.early_stop = args.early_stop
+        self.eval_frequency = args.eval_frequency
+        self.backup_frequency = args.backup_frequency
         self.ep = 1
 
         if args.args_path:
@@ -187,12 +198,14 @@ class DQNAgent:
     def select_action(self, state):
         if random.random() < self.epsilon:
             return random.randint(0, self.num_actions - 1)
-        state_tensor = torch.from_numpy(np.array(state)).float().unsqueeze(0).to(self.device)
+        state_tensor = torch.from_numpy(np.asarray(state)).float().unsqueeze_(0).to(self.device)
         with torch.no_grad():
             q_values = self.q_net(state_tensor)
         return q_values.argmax().item()
 
     def run(self, episodes: int = 1000) -> None:
+        ewma_return = self.best_reward
+
         for ep in range(self.ep, episodes + 1):
             obs, _ = self.env.reset()
 
@@ -209,7 +222,12 @@ class DQNAgent:
 
                 # next_state = self.preprocessor.step(next_obs)
                 next_state = next_obs
-                self.memory.append((state, action, reward * self.reward_scaling, next_state, done))
+                state = torch.from_numpy(state).detach_().float()
+                action = torch.tensor(action, dtype=torch.int64)
+                reward_tensor = torch.tensor(reward, dtype=torch.float32)
+                next_state_tensor = torch.from_numpy(next_state).detach_().float()
+                done_tensor = torch.tensor(done, dtype=torch.bool)
+                self.memory.append((state, action, reward_tensor, next_state_tensor, done_tensor))
 
                 for _ in range(self.train_per_step):
                     self.train()
@@ -239,44 +257,51 @@ class DQNAgent:
             # print(
             #     f"[Eval] Ep: {ep} Total Reward: {total_reward} SC: {self.env_count} UC: {self.train_count} Eps: {self.epsilon:.4f}"
             # )
-            wandb.log(
-                {
-                    "Episode": ep,
-                    "Train Episode Length": step_count,
-                    "Total Reward": total_reward,
-                    "Env Step Count": self.env_count,
-                    "Update Count": self.train_count,
-                    "Epsilon": self.epsilon,
-                }
-            )
             ########## YOUR CODE HERE  ##########
             # Add additional wandb logs for debugging if needed
+            wandb.log(
+                {
+                    "Episodes": ep,
+                    "Train/Episodic Length": step_count,
+                    "Train/Return": total_reward,
+                    "Environment Steps": self.env_count,
+                    "Train/Steps": self.train_count,
+                    "Train/Epsilon": self.epsilon,
+                }
+            )
 
             ########## END OF YOUR CODE ##########
-            if ep % 100 == 0:
+            # if ep % 100 == 0:
+            if ep % self.backup_frequency == 0:
                 model_path = os.path.join(self.save_dir, f"model_ep{ep}.pt")
                 torch.save({"q_net": self.q_net.state_dict(), "target_net": self.target_net.state_dict()}, model_path)
                 with open(Path(self.save_dir, f"model_ep{ep}.pkl"), "wb") as f:
                     pickle.dump((self.epsilon, self.env_count, self.train_count, self.best_reward, ep + 1), f)
                 # print(f"Saved model checkpoint to {model_path}")
 
-            if ep % 20 == 0:
+            # if ep % 20 == 0:
+            if ep % self.eval_frequency == 0:
                 eval_reward, episode_len = self.evaluate()
                 if eval_reward > self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
                     torch.save({"q_net": self.q_net.state_dict()}, model_path)
                     # print(f"Saved new best model to {model_path} with reward {eval_reward}")
-                # print(f"[TrueEval] Ep: {ep} Eval Reward: {eval_reward:.2f} SC: {self.env_count} UC: {self.train_count}")
+                # print(f"[TrueEval] Ep: {ep} Return: {eval_reward:.2f} SC: {self.env_count} UC: {self.train_count}")
+                ewma_return = 0.05 * eval_reward + (1 - 0.05) * ewma_return
                 wandb.log(
                     {
-                        "Episode": ep,
-                        "Env Step Count": self.env_count,
-                        "Update Count": self.train_count,
-                        "Eval Reward": eval_reward,
-                        "Eval Episode Length": episode_len,
+                        "Episodes": ep,
+                        "Environment Steps": self.env_count,
+                        "Train/Steps": self.train_count,
+                        "Eval/Return": eval_reward,
+                        "Eval/Episodic Length": episode_len,
+                        "EWMA Return": ewma_return,
                     }
                 )
+
+                if ewma_return > self.early_stop:
+                    break
 
     def evaluate(self):
         obs, _ = self.test_env.reset()
@@ -287,7 +312,7 @@ class DQNAgent:
         step_count = 0
 
         while not done:
-            state_tensor = torch.from_numpy(np.array(state)).float().unsqueeze(0).to(self.device)
+            state_tensor = torch.from_numpy(np.array(state)).float().unsqueeze_(0).to(self.device)
             with torch.no_grad():
                 action = self.q_net(state_tensor).argmax().item()
             next_obs, reward, terminated, truncated, _ = self.test_env.step(action)
@@ -310,22 +335,27 @@ class DQNAgent:
 
         ########## YOUR CODE HERE (<5 lines) ##########
         # Sample a mini-batch of (s,a,r,s',done) from the replay buffer
-        states, actions, rewards, next_states, dones = zip(*self.memory.sample(self.batch_size))
+        states, actions, rewards, next_states, masks = zip(*self.memory.sample(self.batch_size))
 
         ########## END OF YOUR CODE ##########
 
         # Convert the states, actions, rewards, next_states, and dones into torch tensors
         # NOTE: Enable this part after you finish the mini-batch sampling
-        states = torch.from_numpy(np.array(states).astype(np.float32)).to(self.device)
-        next_states = torch.from_numpy(np.array(next_states).astype(np.float32)).to(self.device)
-        actions = torch.tensor(actions, dtype=torch.int64).to(self.device)
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
-        q_values = self.q_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        # states = torch.from_numpy(np.asarray(states, dtype=np.float32)).to(self.device)
+        # next_states = torch.from_numpy(np.asarray(next_states, dtype=np.float32)).to(self.device)
+        # actions = torch.tensor(actions, dtype=torch.int64, device=self.device)
+        # rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
+        # masks = torch.tensor(masks, dtype=torch.bool, device=self.device)
+        states = torch.stack(states).to(self.device)
+        next_states = torch.stack(next_states).to(self.device)
+        actions = torch.stack(actions).to(self.device).unsqueeze_(0)
+        rewards = torch.stack(rewards).to(self.device)
+        masks = torch.stack(masks).to(self.device)
+        q_values = self.q_net(states).gather(1, actions).flatten()
 
         ########## YOUR CODE HERE (~10 lines) ##########
         # Implement the loss function of DQN and the gradient updates
-        target_q = self.get_target_q(rewards, next_states, dones)
+        target_q = self.get_target_q(rewards, next_states, masks)
         loss = nn.MSELoss()(q_values, target_q)
         self.optimizer.zero_grad()
         loss.backward()
@@ -333,7 +363,9 @@ class DQNAgent:
         ########## END OF YOUR CODE ##########
 
         if self.train_count % self.target_update_frequency == 0:
-            self.target_net.load_state_dict(self.q_net.state_dict())
+            # self.target_net.load_state_dict(self.q_net.state_dict())
+            for target_param, param in zip(self.target_net.parameters(), self.q_net.parameters()):
+                target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
 
         # NOTE: Enable this part if "loss" is defined
         # if self.train_count % 1000 == 0:
@@ -341,25 +373,25 @@ class DQNAgent:
 
         wandb.log(
             {
-                "Env Step Count": self.env_count,
-                "Update Count": self.train_count,
-                "Loss": loss.item(),
-                "Q mean": q_values.mean().item(),
-                "Q std": q_values.std().item(),
+                "Environment Steps": self.env_count,
+                "Train/Steps": self.train_count,
+                "Train/Loss": loss.item(),
+                "Train/Batch Q Mean": q_values.mean().item(),
+                "Train/Batch Q Standard Deviation": q_values.std().item(),
             }
         )
 
     @torch.no_grad()
-    def _target_q_vanilla(self, rewards, next_states: torch.Tensor, dones, gammas=None) -> torch.Tensor:
+    def _target_q_vanilla(self, rewards, next_states: torch.Tensor, masks, gammas=None) -> torch.Tensor:
         gammas = self.gamma if gammas is None else gammas
-        return rewards + (1 - dones) * gammas * self.target_net(next_states).amax(dim=1)
+        return rewards + torch.masked_fill(gammas * self.target_net(next_states).amax(dim=1), masks, 0)
 
     @torch.no_grad()
-    def _target_q_double(self, rewards, next_states: torch.Tensor, dones, gammas=None) -> torch.Tensor:
+    def _target_q_double(self, rewards, next_states: torch.Tensor, masks, gammas=None) -> torch.Tensor:
         gammas = self.gamma if gammas is None else gammas
         next_actions = self.q_net(next_states).argmax(1, keepdim=True)
-        next_target_q = self.target_net(next_states).gather(1, next_actions).squeeze_(1)
-        return rewards + (1 - dones) * gammas * next_target_q
+        next_target_q = self.target_net(next_states).gather(1, next_actions).flatten()
+        return rewards + torch.masked_fill(gammas * next_target_q, masks, 0)
 
 
 if __name__ == "__main__":

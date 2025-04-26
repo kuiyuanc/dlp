@@ -50,16 +50,23 @@ class ConvDQNAgent(DQNAgent):
         self.q_net.apply(init_weights)
         self.target_net = ConvDQN(self.num_actions).to(self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
-        self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.lr)
+        self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.learning_rate)
 
         if args.model_path:
             state_dict = torch.load(args.model_path, map_location=self.device)
             self.q_net.load_state_dict(state_dict["q_net"])
             self.target_net.load_state_dict(state_dict["target_net"])
 
+        if self.device.type.startswith("xpu"):
+            import intel_extension_for_pytorch as ipex
+
+            self.q_net, self.optimizer = ipex.optimize(self.q_net, torch.float32, self.optimizer, inplace=True)
+
         self.best_reward = -21  # Initilized to 0 for CartPole and to -21 for Pong
 
     def run(self, episodes: int = 1000) -> None:
+        ewma_return = self.best_reward
+
         for ep in range(self.ep, episodes + 1):
             obs, _ = self.env.reset()
 
@@ -74,7 +81,12 @@ class ConvDQNAgent(DQNAgent):
                 done = terminated or truncated
 
                 next_state = self.preprocessor.step(next_obs)
-                self.memory.append((state, action, reward * self.reward_scaling, next_state, done))
+                state = torch.from_numpy(state).detach_().float()
+                action = torch.tensor(action, dtype=torch.int64).unsqueeze_(0)
+                reward_tensor = torch.tensor(reward, dtype=torch.float32).unsqueeze_(0)
+                next_state_tensor = torch.from_numpy(next_state).detach_().float()
+                done_tensor = torch.tensor(done, dtype=torch.bool).unsqueeze_(0)
+                self.memory.append((state, action, reward_tensor, next_state_tensor, done_tensor))
 
                 for _ in range(self.train_per_step):
                     self.train()
@@ -86,36 +98,42 @@ class ConvDQNAgent(DQNAgent):
 
             wandb.log(
                 {
-                    "Episode": ep,
-                    "Train Episode Length": step_count,
-                    "Total Reward": total_reward,
-                    "Env Step Count": self.env_count,
-                    "Update Count": self.train_count,
-                    "Epsilon": self.epsilon,
+                    "Episodes": ep,
+                    "Train/Episodic Length": step_count,
+                    "Train/Return": total_reward,
+                    "Environment Steps": self.env_count,
+                    "Train/Steps": self.train_count,
+                    "Train/Epsilon": self.epsilon,
                 }
             )
 
-            if ep % 10 == 0:
+            if ep % self.backup_frequency == 0:
                 model_path = os.path.join(self.save_dir, f"model_ep{ep}.pt")
                 torch.save({"q_net": self.q_net.state_dict(), "target_net": self.target_net.state_dict()}, model_path)
                 with open(Path(self.save_dir, f"model_ep{ep}.pkl"), "wb") as f:
                     pickle.dump((self.epsilon, self.env_count, self.train_count, self.best_reward, ep + 1), f)
 
+            if ep % self.eval_frequency == 0:
                 eval_reward, episode_len = self.evaluate()
                 if eval_reward > self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
                     torch.save({"q_net": self.q_net.state_dict()}, model_path)
 
+                ewma_return = 0.05 * eval_reward + (1 - 0.05) * ewma_return
                 wandb.log(
                     {
-                        "Episode": ep,
-                        "Env Step Count": self.env_count,
-                        "Update Count": self.train_count,
-                        "Eval Reward": eval_reward,
-                        "Eval Episode Length": episode_len,
+                        "Episodes": ep,
+                        "Environment Steps": self.env_count,
+                        "Train/Steps": self.train_count,
+                        "Eval/Return": eval_reward,
+                        "Eval/Episodic Length": episode_len,
+                        "EWMA Return": ewma_return,
                     }
                 )
+
+                if ewma_return > self.early_stop:
+                    break
 
     def evaluate(self):
         obs, _ = self.test_env.reset()
@@ -125,7 +143,7 @@ class ConvDQNAgent(DQNAgent):
         step_count = 0
 
         while not done:
-            state_tensor = torch.from_numpy(np.array(state)).float().unsqueeze(0).to(self.device)
+            state_tensor = torch.from_numpy(np.asarray(state)).float().unsqueeze_(0).to(self.device)
             with torch.no_grad():
                 action = self.q_net(state_tensor).argmax().item()
             next_obs, reward, terminated, truncated, _ = self.test_env.step(action)

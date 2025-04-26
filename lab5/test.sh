@@ -7,4 +7,4 @@
 
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libcuda.so.1
 
-srun python3 src/test_model.py $*
+nice -n 19 srun python3 src/test_model.py $* --device cuda
