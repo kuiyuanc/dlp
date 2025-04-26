@@ -2,7 +2,7 @@ PY = uv run
 TRAIN = $(PY) src/train.py
 TEST = $(PY) src/test_model.py
 
-SBATCH = sbatch -A dlp_acct -p dlp_nodes --gres=gpu:1
+SBATCH = sbatch -A dlp_acct -p dlp_nodes -N 1 --gres=gpu:1
 
 args =
 
