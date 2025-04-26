@@ -173,10 +173,7 @@ def get_config(*, task: int) -> tuple[str, str, bool, type, type]:
 
 
 def get_geometry_series(base, ratio, begin: int, end: int) -> tuple:
-    exponents = [ratio**begin]
-    for _ in range(begin + 1, end + 1):
-        exponents.append(exponents[-1] * ratio)
-    return tuple(map(operator.mul, repeat(base), exponents))
+    return tuple(base * (ratio**i) for i in range(begin, end + 1))
 
 
 def get_linear_series(base, diff, begin: int, end: int) -> tuple:
