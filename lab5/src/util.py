@@ -31,7 +31,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--epsilon-decay", type=float, default=0.999374)
     parser.add_argument("--epsilon-min", type=float, default=0.01)
     parser.add_argument("--target-update-frequency", type=int, default=128)
-    parser.add_argument("--replay-start-size", type=int, default=4096)
+    parser.add_argument("--replay-start-size", type=int, default=32768)
     parser.add_argument("--max-episode-steps", type=int, default=100000)
     parser.add_argument("--train-per-step", type=int, default=4)
 
@@ -102,7 +102,6 @@ def args_to_sweep_config(args: argparse.Namespace) -> dict:
         "learning_rate": {"values": get_geometry_series(base=1, ratio=10**-0.5, begin=4, end=12)},
         "epsilon_decay": {"values": tuple(1 - x for x in get_geometry_series(base=1, ratio=0.1, begin=2, end=6))},
         "target_update_frequency": {"values": get_geometry_series(base=256, ratio=2, begin=0, end=5)},
-        "replay_start_size": {"values": get_geometry_series(base=256, ratio=2, begin=0, end=5)},
         "tau": {"values": get_geometry_series(base=0.1, ratio=0.1, begin=0, end=3)},
     }
 

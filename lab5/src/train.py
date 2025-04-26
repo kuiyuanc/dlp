@@ -15,7 +15,7 @@ def train():
         args.learning_rate = wandb.config["learning_rate"]
         args.epsilon_decay = wandb.config["epsilon_decay"]
         args.target_update_frequency = wandb.config["target_update_frequency"]
-        args.replay_start_size = wandb.config["replay_start_size"]
+        args.replay_start_size = args.memory_size
         args.tau = wandb.config["tau"]
         if args.task == 3:
             args.alpha = wandb.config["alpha"]
