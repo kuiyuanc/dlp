@@ -98,11 +98,25 @@ def args_to_config(args: argparse.Namespace) -> dict:
 
 def args_to_sweep_config(args: argparse.Namespace) -> dict:
     parameters = {
+        # searching space
         "batch_size": {"values": get_geometry_series(base=1, ratio=2, begin=4, end=8)},
         "learning_rate": {"values": get_geometry_series(base=1, ratio=10**-0.5, begin=4, end=12)},
         "epsilon_decay": {"values": tuple(1 - x for x in get_geometry_series(base=1, ratio=0.1, begin=2, end=6))},
         "target_update_frequency": {"values": get_geometry_series(base=256, ratio=2, begin=0, end=5)},
         "tau": {"values": get_geometry_series(base=0.1, ratio=0.1, begin=0, end=3)},
+        # preset
+        "memory_size": {"value": args.memory_size},
+        "discount_factor": {"value": args.discount_factor},
+        "epsilon_start": {"value": args.epsilon_start},
+        "epsilon_min": {"value": args.epsilon_min},
+        "replay_start_size": {"value": args.replay_start_size},
+        "max_episode_steps": {"value": args.max_episode_steps},
+        "train_per_step": {"value": args.train_per_step},
+        "double": {"value": args.double},
+        "skip_frames": {"value": args.skip_frames},
+        "task": {"value": args.task},
+        "seed": {"value": args.seed},
+        "device": {"value": args.device},
     }
 
     if args.task == 3:
