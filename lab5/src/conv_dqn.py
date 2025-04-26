@@ -82,10 +82,10 @@ class ConvDQNAgent(DQNAgent):
 
                 next_state = self.preprocessor.step(next_obs)
                 state = torch.from_numpy(state).detach_().float()
-                action = torch.tensor(action, dtype=torch.int64).unsqueeze_(0)
-                reward_tensor = torch.tensor(reward, dtype=torch.float32).unsqueeze_(0)
+                action = torch.tensor(action, dtype=torch.int64)
+                reward_tensor = torch.tensor(reward, dtype=torch.float32)
                 next_state_tensor = torch.from_numpy(next_state).detach_().float()
-                done_tensor = torch.tensor(done, dtype=torch.bool).unsqueeze_(0)
+                done_tensor = torch.tensor(done, dtype=torch.bool)
                 self.memory.append((state, action, reward_tensor, next_state_tensor, done_tensor))
 
                 for _ in range(self.train_per_step):
