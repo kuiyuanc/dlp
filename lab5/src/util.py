@@ -180,7 +180,4 @@ def get_geometry_series(base, ratio, begin: int, end: int) -> tuple:
 
 
 def get_linear_series(base, diff, begin: int, end: int) -> tuple:
-    exponents = [diff * begin]
-    for _ in range(begin + 1, end + 1):
-        exponents.append(exponents[-1] * diff)
-    return tuple(map(operator.mul, repeat(base), exponents))
+    return tuple(base + diff * i for i in range(begin, end + 1))
