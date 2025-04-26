@@ -10,7 +10,9 @@ def train():
     wandb_project, enhance, _, _, Agent = get_config(task=args.task)
 
     if args.sweep:
-        wandb.init(name=args.wandb_id)
+        run = wandb.init()
+        run.name = run.id
+
         args.batch_size = wandb.config["batch_size"]
         args.learning_rate = wandb.config["learning_rate"]
         args.epsilon_decay = wandb.config["epsilon_decay"]
