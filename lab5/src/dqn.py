@@ -282,7 +282,7 @@ class DQNAgent:
             # if ep % 20 == 0:
             if ep % self.eval_frequency == 0:
                 eval_reward, episode_len = self.evaluate()
-                if eval_reward > self.best_reward:
+                if eval_reward >= self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
                     torch.save({"q_net": self.q_net.state_dict()}, model_path)
