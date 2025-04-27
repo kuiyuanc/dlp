@@ -135,10 +135,12 @@ def args_to_sweep_config(args: argparse.Namespace) -> dict:
 
 
 def load_prior_runs(args: argparse.Namespace) -> list:
+    project, enhance, _, _, _ = get_config(task=args.task)
+    prior_runs = Path("wandb", project, enhance, "sweep.txt")
     if args.prior_sweep_id:
         return [path.stem.removeprefix("config-") for path in Path(f"wandb/sweep-{args.wandb_id}").iterdir()]
-    elif Path("wandb/sweep.txt").exists():
-        with open("wandb/sweep.txt", "r") as f:
+    elif prior_runs.exists():
+        with prior_runs.open() as f:
             return f.readlines()
     else:
         return []
