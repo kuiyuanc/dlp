@@ -142,6 +142,7 @@ def get_args():
 
     parser.add_argument("--task", "-t", type=int, default=0)
     parser.add_argument("--wandb-id", type=str, default=None)
+    parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--skip-frames", type=int, default=1)
 
     return parser.parse_args()
