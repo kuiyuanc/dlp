@@ -141,7 +141,7 @@ def get_args():
     parser.add_argument("--seed", type=int, default=313551076, help="Random seed for evaluation")
 
     parser.add_argument("--task", "-t", type=int, default=0)
-    parser.add_argument("--wandb-id", type=str, default=None)
+    parser.add_argument("--wandb-id", required=True, type=str)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--skip-frames", type=int, default=1)
 
@@ -152,9 +152,8 @@ def eval_task(task: int) -> None:
     env_name, enhance, atari, DQN, _ = get_config(task=args.task)
     args.output_dir = Path(args.output_dir, env_name, enhance)
     args.model_dir = Path(args.model_dir, env_name, enhance)
-    id = args.wandb_id if args.wandb_id else max(map(lambda x: x.stem, args.model_dir.iterdir()))
-    args.output_dir = Path(args.output_dir, id)
-    args.model_dir = Path(args.model_dir, id)
+    args.output_dir = Path(args.output_dir, args.wandb_id)
+    args.model_dir = Path(args.model_dir, args.wandb_id)
 
     args.model_path = Path(args.model_dir, "best_model.pt")
     mean_reward = evaluate(args, DQN, env_name, atari)
