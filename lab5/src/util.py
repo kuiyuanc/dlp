@@ -1,8 +1,5 @@
 import argparse
-import operator
 import random
-import time
-from itertools import repeat
 from pathlib import Path
 
 import conv_dqn
