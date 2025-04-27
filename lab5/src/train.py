@@ -51,8 +51,10 @@ def sweep(args):
     wandb_project, _, _, _, _ = get_config(task=args.task)
     if not args.sweep_id:
         config = args_to_sweep_config(args)
-        prior_runs = load_prior_runs(args)
-        args.sweep_id = wandb.sweep(sweep=config, project=wandb_project, prior_runs=prior_runs)
+        if prior_runs := load_prior_runs(args):
+            args.sweep_id = wandb.sweep(sweep=config, project=wandb_project, prior_runs=prior_runs)
+        else:
+            args.sweep_id = wandb.sweep(sweep=config, project=wandb_project)
     wandb.agent(args.sweep_id, project=wandb_project, function=train, count=args.num_sweep)
 
 
