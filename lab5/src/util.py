@@ -107,7 +107,7 @@ def args_to_sweep_config(args: argparse.Namespace) -> dict:
         "tau": {"values": get_geometry_series(base=0.1, ratio=0.1, begin=0, end=3)},
         # preset
         "memory_size": {"value": args.memory_size},
-        "discount_factor": {"value": args.discount_factor},
+        "gamma": {"value": args.discount_factor},
         "epsilon_start": {"value": args.epsilon_start},
         "epsilon_min": {"value": args.epsilon_min},
         "replay_start_size": {"value": args.replay_start_size},
