@@ -67,7 +67,7 @@ def get_args() -> argparse.Namespace:
 
 
 def args_to_config(args: argparse.Namespace) -> dict:
-    config = vars(args)
+    config = vars(args).copy()
 
     config.pop("save_dir")
     config.pop("num_episodes")
