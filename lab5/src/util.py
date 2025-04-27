@@ -115,7 +115,6 @@ def args_to_sweep_config(args: argparse.Namespace) -> dict:
         "train_per_step": {"value": args.train_per_step},
         "double": {"value": args.double},
         "skip_frames": {"value": args.skip_frames},
-        "task": {"value": args.task},
         "seed": {"value": args.seed},
         "device": {"value": args.device},
     }
