@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import wandb
+import pretty_errors  # noqa: F401
 from util import args_to_config, args_to_sweep_config, get_args, get_config, load_prior_runs, set_seed
 
 

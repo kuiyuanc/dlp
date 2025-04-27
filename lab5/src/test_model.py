@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from util import get_config
+import pretty_errors  # noqa: F401
 
 # class DQN(nn.Module):
 #     def __init__(self, input_channels, num_actions):
