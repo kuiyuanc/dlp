@@ -52,7 +52,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--early-stop", type=float, default=19)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--load-model", type=str, default=None)
-    parser.add_argument("--wandb-id", type=str, default=str(int(time.time())))
+    parser.add_argument("--wandb-id", type=str, default=None)
 
     parser.add_argument("--sweep", action="store_true")
     parser.add_argument("--sweep-method", type=str, default="bayes")
@@ -70,6 +70,7 @@ def args_to_config(args: argparse.Namespace) -> dict:
     config = vars(args).copy()
 
     config.pop("save_dir")
+    config.pop("task")
     config.pop("num_episodes")
     config.pop("eval_frequency")
     config.pop("backup_frequency")

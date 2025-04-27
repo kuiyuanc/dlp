@@ -8,11 +8,13 @@ from util import args_to_config, args_to_sweep_config, get_args, get_config, loa
 def train():
     args = get_args()
     set_seed(args.seed)
-    wandb_project, enhance, _, _, Agent = get_config(task=args.task)
+    project, enhance, _, _, Agent = get_config(task=args.task)
+
+    group = f"{args.task=}"
+    dir = Path("wandb", project, "enhanced" if args.task == 3 else "vanilla")
 
     if args.sweep:
-        run = wandb.init()
-        run.name = run.id
+        wandb.init(group=group, dir=dir)
 
         args.batch_size = wandb.config["batch_size"]
         args.learning_rate = wandb.config["learning_rate"]
@@ -26,9 +28,16 @@ def train():
             args.return_steps = wandb.config["return_steps"]
     else:
         config = args_to_config(args)
-        wandb.init(project=wandb_project, name=args.wandb_id, config=config, id=args.wandb_id, resume="allow")
+        if args.wandb_id:
+            wandb.init(group=group, dir=dir, project=project, config=config, id=args.wandb_id, resume="allow")
+        else:
+            wandb.init(group=group, dir=dir, project=project, config=config)
 
-    args.save_dir = Path(args.save_dir, wandb_project, enhance, args.wandb_id)
+    assert wandb.run
+    wandb.run.name = wandb.run.id
+
+    args.wandb_id = wandb.run.id
+    args.save_dir = Path(args.save_dir, project, enhance, args.wandb_id)
     args.model_path = Path(args.save_dir, f"{args.load_model}.pt") if args.load_model else None
     args.args_path = Path(args.save_dir, f"{args.load_model}.pkl") if args.load_model else None
 
