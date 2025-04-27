@@ -124,7 +124,7 @@ def args_to_sweep_config(args: argparse.Namespace) -> dict:
             "alpha": {"values": get_linear_series(base=0.0, diff=0.2, begin=0, end=5)},
             "beta": {"values": get_linear_series(base=0.0, diff=0.2, begin=0, end=5)},
             "epsilon": {"values": get_geometry_series(base=0.1, ratio=0.1, begin=0, end=2)},
-            "return_steps": {"values": get_geometry_series(base=1, ratio=2, begin=0, end=2)},
+            "return_steps": {"values": tuple(range(1, 8 + 1))},
         }
 
     config = {
