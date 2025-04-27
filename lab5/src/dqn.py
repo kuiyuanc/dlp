@@ -154,7 +154,7 @@ class DQNAgent:
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=args.learning_rate)
 
-        if args.model_path:
+        if args.model_path and env_name in str(args.model_path):
             state_dict = torch.load(args.model_path, map_location=self.device)
             self.q_net.load_state_dict(state_dict["q_net"])
             self.target_net.load_state_dict(state_dict["target_net"])
