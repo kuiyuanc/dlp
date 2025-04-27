@@ -31,7 +31,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--epsilon-decay", type=float, default=0.999374)
     parser.add_argument("--epsilon-min", type=float, default=0.01)
     parser.add_argument("--target-update-frequency", type=int, default=128)
-    parser.add_argument("--replay-start-size", type=int, default=32768)
+    parser.add_argument("--replay-start-size", type=int, default=16384)
     parser.add_argument("--max-episode-steps", type=int, default=100000)
     parser.add_argument("--train-per-step", type=int, default=4)
 
