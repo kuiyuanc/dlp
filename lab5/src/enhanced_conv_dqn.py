@@ -15,7 +15,7 @@ import numpy as np
 import torch
 import wandb
 from conv_dqn import ConvDQNAgent
-from dqn import PrioritizedReplayBuffer
+from dqn import PrioritizedReplayBuffer, Transition
 
 gym.register_envs(ale_py)
 
@@ -26,9 +26,12 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
 
         self.memory = PrioritizedReplayBuffer(args.memory_size, args.alpha, args.beta, args.epsilon)
         self.return_steps = args.return_steps
-        self.multi_step_discount = self.gamma ** np.arange(self.return_steps, dtype=np.float32)
         self.discount = self.gamma**self.return_steps
-        self.discount_tensor = torch.tensor(self.discount, dtype=torch.float32)
+
+        self.beta_step = (1 - args.beta) / args.beta_anneal_steps if args.beta_anneal else 0.0
+        if args.args_path:
+            with open(f"{str(args.args_path).removesuffix('.pkl')}_beta.pkl", "rb") as f:
+                self.memory.beta = pickle.load(f)
 
     def run(self, episodes: int = 1000) -> None:
         ewma_return = self.best_reward
@@ -37,75 +40,32 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
             obs, _ = self.env.reset()
 
             state = self.preprocessor.reset(obs)
+            state = torch.from_numpy(state).float().unsqueeze_(dim=0)
             done = False
             total_reward = 0
             step_count = 0
 
-            states = deque(maxlen=self.return_steps)
-            actions = deque(maxlen=self.return_steps)
-            rewards = deque(maxlen=self.return_steps)
-
             while not done and step_count < self.max_episode_steps:
                 action = self.select_action(state)
-                segment_reward = 0
 
-                for _ in range(self.skip_frames):
-                    next_obs, reward, terminated, truncated, _ = self.env.step(action)
-                    done = terminated or truncated
+                next_obs, reward, terminated, truncated, _ = self.env.step(action)
+                done = terminated or truncated
 
-                    segment_reward += float(reward)
-                    next_state = self.preprocessor.step(next_obs)
+                next_state = self.preprocessor.step(next_obs)
+                next_state = torch.from_numpy(next_state).float().unsqueeze_(dim=0)
+                action = torch.tensor(action, dtype=torch.int64)
+                reward = torch.tensor(reward, dtype=torch.float32)
+                done = torch.tensor(done, dtype=torch.float32)
 
-                    self.env_count += 1
-                    step_count += 1
-
-                    if done:
-                        break
-
-                states.append(torch.from_numpy(state).float())
-                actions.append(torch.tensor(action, dtype=torch.int64))
-                rewards.append(segment_reward)
-
-                if len(states) == self.return_steps:
-                    multi_step_reward = torch.tensor(np.dot(rewards, self.multi_step_discount), dtype=torch.float32)
-                    next_state_tensor = torch.from_numpy(next_state).float()
-                    done = torch.tensor(done, dtype=torch.bool)
-                    transition = (
-                        states[0],
-                        actions[0],
-                        multi_step_reward,
-                        next_state_tensor,
-                        done,
-                        self.discount_tensor,
-                    )
-                    self.memory.add(transition, 1e9)
+                self.memory.add(Transition(state, action, reward, next_state, done))
 
                 for _ in range(self.train_per_step):
                     self.train()
 
                 state = next_state
-                total_reward += segment_reward
-
-            if len(states) == self.return_steps:
-                states.popleft()
-                actions.popleft()
-                rewards.popleft()
-
-            discount = self.gamma ** len(states)
-            rewards = np.asarray(rewards, dtype=np.float32)
-
-            for i in range(len(states)):
-                multi_step_reward = np.dot(rewards[i:], self.multi_step_discount[: len(states) - i])
-                multi_step_reward = torch.tensor(multi_step_reward, dtype=torch.float32)
-                next_state_tensor = torch.from_numpy(next_state).float()
-                discount_tensor = torch.tensor(discount, dtype=torch.float32)
-                transition = (states[i], actions[i], multi_step_reward, next_state_tensor, done, discount_tensor)
-                self.memory.add(transition, 1e9)
-
-                for _ in range(self.train_per_step):
-                    self.train()
-
-                discount /= self.gamma
+                total_reward += float(reward)
+                self.env_count += 1
+                step_count += 1
 
             wandb.log(
                 {
@@ -123,10 +83,13 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
                 torch.save({"q_net": self.q_net.state_dict(), "target_net": self.target_net.state_dict()}, model_path)
                 with open(Path(self.save_dir, f"model_ep{ep}.pkl"), "wb") as f:
                     pickle.dump((self.epsilon, self.env_count, self.train_count, self.best_reward, ep + 1), f)
+                with open(Path(self.save_dir, f"model_ep{ep}_beta.pkl"), "wb") as f:
+                    pickle.dump(self.memory.beta, f)
 
             if ep % self.eval_frequency == 0:
-                eval_reward, episode_len = self.evaluate()
-                if eval_reward > self.best_reward:
+                eval_steps = int(1 + np.log2(self.eval_frequency))
+                eval_reward, episode_len = map(np.mean, zip(*(self.evaluate() for _ in range(eval_steps))))
+                if eval_reward >= self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
                     torch.save({"q_net": self.q_net.state_dict()}, model_path)
@@ -155,7 +118,7 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
         self.train_count += 1
 
         samples, indices, weights = self.memory.sample(self.batch_size)
-        states, actions, rewards, next_states, masks, gammas = zip(*samples)
+        states, actions, rewards, next_states, masks = zip(*samples)
         weights = torch.from_numpy(weights).to(self.device)
 
         states = torch.stack(states).to(self.device)
@@ -163,13 +126,13 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
         actions = torch.stack(actions).to(self.device).unsqueeze_(1)
         rewards = torch.stack(rewards).to(self.device)
         masks = torch.stack(masks).to(self.device)
-        gammas = torch.stack(gammas).to(self.device)
         q_values = self.q_net(states).gather(1, actions).flatten()
 
-        target_q = self.get_target_q(rewards, next_states, masks, gammas)
+        target_q = self.get_target_q(rewards, next_states, masks, self.discount)
         errors = target_q - q_values
         loss = (errors**2 * weights).mean()
         self.memory.update_priorities(indices, errors.detach().cpu().numpy())
+        self.memory.beta_anneal(self.beta_step)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -187,6 +150,7 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
                 "Train/Loss": loss.item(),
                 "Train/Batch Q Mean": q_values.mean().item(),
                 "Train/Batch Q Standard Deviation": q_values.std().item(),
+                "Train/Importance Sampling beta": self.memory.beta,
             }
         )
 
@@ -201,13 +165,10 @@ class EnhancedConvDQNAgent(ConvDQNAgent):
             state_tensor = torch.from_numpy(np.asarray(state)).float().unsqueeze_(0).to(self.device)
             with torch.no_grad():
                 action = self.q_net(state_tensor).argmax().item()
-            for _ in range(self.skip_frames):
-                next_obs, reward, terminated, truncated, _ = self.test_env.step(action)
-                done = terminated or truncated
-                total_reward += float(reward)
-                state = self.preprocessor.step(next_obs)
-                step_count += 1
-                if done:
-                    break
+            next_obs, reward, terminated, truncated, _ = self.test_env.step(action)
+            done = terminated or truncated
+            total_reward += float(reward)
+            state = self.preprocessor.step(next_obs)
+            step_count += 1
 
         return total_reward, step_count

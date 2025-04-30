@@ -20,34 +20,35 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--save-dir", type=str, default="./weights")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--memory-size", type=int, default=32768)
-    parser.add_argument("--learning-rate", "-lr", type=float, default=0.000_25)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--memory-size", type=int, default=16384)
+    parser.add_argument("--learning-rate", "-lr", type=float, default=1e-4)
     parser.add_argument("--discount-factor", "--gamma", type=float, default=0.99)
     parser.add_argument("--epsilon-start", type=float, default=1.0)
-    parser.add_argument("--epsilon-decay", type=float, default=0.999_374)
-    parser.add_argument("--epsilon-min", type=float, default=0.01)
-    parser.add_argument("--target-update-frequency", type=int, default=128)
-    parser.add_argument("--replay-start-size", type=int, default=16384)
-    parser.add_argument("--max-episode-steps", type=int, default=100_000)
+    parser.add_argument("--epsilon-decay", type=float, default=0.99998)
+    parser.add_argument("--epsilon-min", type=float, default=0.05)
+    parser.add_argument("--target-update-frequency", type=int, default=1024)
+    parser.add_argument("--replay-start-size", type=int, default=4096)
+    parser.add_argument("--max-episode-steps", type=int, default=10000)
     parser.add_argument("--train-per-step", type=int, default=4)
 
     parser.add_argument("--double", action="store_true")
     parser.add_argument("--alpha", type=float, default=0.6)
     parser.add_argument("--beta", type=float, default=0.4)
+    parser.add_argument("--beta-anneal", action="store_true")
+    parser.add_argument("--beta-anneal-steps", type=int, default=150_000)
     parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument("--return-steps", type=int, default=3)
 
-    parser.add_argument("--skip-frames", type=int, default=4)
-    parser.add_argument("--tau", type=float, default=0.002)
+    parser.add_argument("--tau", type=float, default=1)
 
     parser.add_argument("--task", "-t", type=int, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num-episodes", type=int, default=1000)
-    parser.add_argument("--eval-frequency", type=int, default=1)
+    parser.add_argument("--eval-frequency", type=int, default=4)
     parser.add_argument("--backup-frequency", type=int, default=100)
     parser.add_argument("--early-stop", type=float, default=19)
-    parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--load-model", type=str, default=None)
     parser.add_argument("--wandb-id", type=str, default=None)
 
@@ -84,12 +85,14 @@ def args_to_config(args: argparse.Namespace) -> dict:
     config.pop("prior_sweep_id")
     config.pop("wandb_api_key")
 
+    if args.task == 1:
+        config.pop("skip_frames")
+
     if args.task != 3:
         config.pop("alpha")
         config.pop("beta")
         config.pop("epsilon")
         config.pop("return_steps")
-        config.pop("skip_frames")
 
     return config
 
@@ -111,10 +114,12 @@ def args_to_sweep_config(args: argparse.Namespace) -> dict:
         "max_episode_steps": {"value": args.max_episode_steps},
         "train_per_step": {"value": args.train_per_step},
         "double": {"value": args.double},
-        "skip_frames": {"value": args.skip_frames},
         "seed": {"value": args.seed},
         "device": {"value": args.device},
     }
+
+    if args.task != 1:
+        parameters |= {"skip_frames": {"value": args.skip_frames}}
 
     if args.task == 3:
         parameters |= {

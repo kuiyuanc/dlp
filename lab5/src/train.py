@@ -28,18 +28,15 @@ def train():
             args.return_steps = wandb.config["return_steps"]
     else:
         config = args_to_config(args)
-        if args.wandb_id:
-            wandb.init(group=group, dir=dir, project=project, config=config, id=args.wandb_id, resume="allow")
-        else:
-            wandb.init(group=group, dir=dir, project=project, config=config)
+        wandb.init(group=group, dir=dir, project=project, config=config)
 
     assert wandb.run
     wandb.run.name = wandb.run.id
 
-    args.wandb_id = wandb.run.id
-    args.save_dir = Path(args.save_dir, project, enhance, args.wandb_id)
-    args.model_path = Path(args.save_dir, f"{args.load_model}.pt") if args.load_model else None
-    args.args_path = Path(args.save_dir, f"{args.load_model}.pkl") if args.load_model else None
+    args.save_dir = Path(args.save_dir, project, enhance)
+    args.model_path = Path(args.save_dir, args.wandb_id, f"{args.load_model}.pt") if args.load_model else None
+    args.args_path = Path(args.save_dir, args.wandb_id, f"{args.load_model}.pkl") if args.load_model else None
+    args.save_dir = Path(args.save_dir, wandb.run.id)
 
     agent = Agent(args)
     agent.run(args.num_episodes)

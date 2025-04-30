@@ -114,8 +114,9 @@ class ConvDQNAgent(DQNAgent):
                     pickle.dump((self.epsilon, self.env_count, self.train_count, self.best_reward, ep + 1), f)
 
             if ep % self.eval_frequency == 0:
-                eval_reward, episode_len = self.evaluate()
-                if eval_reward > self.best_reward:
+                eval_steps = int(1 + np.log2(self.eval_frequency))
+                eval_reward, episode_len = map(np.mean, zip(*(self.evaluate() for _ in range(eval_steps))))
+                if eval_reward >= self.best_reward:
                     self.best_reward = eval_reward
                     model_path = os.path.join(self.save_dir, "best_model.pt")
                     torch.save({"q_net": self.q_net.state_dict()}, model_path)

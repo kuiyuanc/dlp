@@ -9,8 +9,9 @@ import pickle
 import random
 
 # import time
-from collections import deque
+from collections import deque, namedtuple
 from pathlib import Path
+from typing import Generator, Union
 
 # import ale_py
 import cv2
@@ -23,6 +24,8 @@ import wandb
 from replay import ReplayBuffer
 
 # gym.register_envs(ale_py)
+
+Transition = namedtuple("Transition", ("state", "action", "reward", "next_state", "done"))
 
 
 def init_weights(m):
@@ -91,43 +94,73 @@ class PrioritizedReplayBuffer:
     See the paper (Schaul et al., 2016) at https://arxiv.org/abs/1511.05952
     """
 
-    def __init__(self, capacity: int, alpha: float = 0.6, beta: float = 0.4, epsilon: float = 0.01):
-        self.capacity: int = capacity
-        self.alpha: float = alpha
-        self.beta: float = beta
-        self.buffer: list = [None] * capacity
-        self.priorities: np.ndarray = np.zeros((capacity,), dtype=np.float32)
-        self.pos: int = 0
-        self.epsilon: float = epsilon
-        self.len: int = 0
+    def __init__(
+        self,
+        capacity: int = 25000,
+        alpha: float = 0.6,
+        beta: float = 0.4,
+        epsilon: float = 0.01,
+        max_error: float = 1e9,
+        gamma: float = 0.99,
+        n_step: int = 3,
+    ):
+        self._init_per(capacity, alpha, beta, epsilon, max_error)
+        self._init_n_step(gamma, n_step)
 
     def __len__(self) -> int:
-        return self.len
+        return self.size
 
-    def add(self, transition: tuple, error: float) -> None:
-        ########## YOUR CODE HERE (for Task 3) ##########
-        self.buffer[self.pos] = transition
-        self.priorities[self.pos] = (abs(error) + self.epsilon) ** self.alpha
+    def add(self, transition: Transition, error: float = 1e9) -> None:
+        self.n_step_buffer.append(transition)
+        if len(self.n_step_buffer) < self.n_step:
+            return
+
+        n_step_transition = self._get_n_step_transition()
+        self.buffer[self.pos] = n_step_transition
+        self.priorities[self.pos] = self.max_priority
         self.pos = (self.pos + 1) % self.capacity
-        self.len = min(self.capacity, self.len + 1)
-        ########## END OF YOUR CODE (for Task 3) ##########
-        return
+        self.size = min(self.size + 1, self.capacity)
 
-    def sample(self, batch_size: int) -> tuple:
-        ########## YOUR CODE HERE (for Task 3) ##########
+        if n_step_transition.done:
+            self.n_step_buffer.clear()
+
+    def sample(self, batch_size: int) -> tuple[Generator, np.ndarray, np.ndarray]:
         p = self.priorities / self.priorities.sum()
-        indices = np.random.choice(self.len, batch_size, p=p[: self.len])
-        weights = (self.len * p[indices]) ** (-self.beta)
+        indices = np.random.choice(self.size, batch_size, p=p[: self.size])
+        weights = (self.size * p[indices]) ** (-self.beta)
         weights /= weights.max()
         samples = (self.buffer[i] for i in indices)
-        ########## END OF YOUR CODE (for Task 3) ##########
         return samples, indices, weights
 
     def update_priorities(self, indices: np.ndarray, errors: np.ndarray) -> None:
-        ########## YOUR CODE HERE (for Task 3) ##########
-        self.priorities[indices] = (abs(errors) + self.epsilon) ** self.alpha
-        ########## END OF YOUR CODE (for Task 3) ##########
-        return
+        self.priorities[indices] = np.power(abs(errors) + self.epsilon, self.alpha)
+
+    def beta_anneal(self, step: float) -> None:
+        self.beta = min(1, self.beta + step)
+
+    def _init_per(self, capacity: int, alpha: float, beta: float, epsilon: float, max_error: float) -> None:
+        self.capacity: int = capacity
+        self.alpha: float = alpha
+        self.beta: float = beta
+        self.epsilon: float = epsilon
+        self.max_priority: float = max_error**alpha
+        self.buffer: list[Union[Transition, None]] = [None] * capacity
+        self.priorities: np.ndarray = np.zeros((capacity,), dtype=np.float32)
+        self.pos: int = 0
+        self.size: int = 0
+
+    def _init_n_step(self, gamma: float, n_step: int) -> None:
+        self.n_step: int = n_step
+        self.gammas: np.ndarray = gamma ** np.arange(n_step, dtype=np.float32)
+        self.n_step_buffer: deque[Transition] = deque(maxlen=n_step)
+
+    def _get_n_step_transition(self) -> Transition:
+        state: torch.Tensor = self.n_step_buffer[0].state
+        action: torch.Tensor = self.n_step_buffer[0].action
+        next_state: torch.Tensor = self.n_step_buffer[-1].next_state
+        reward: np.float64 = np.dot(self.gammas, tuple(t.reward for t in self.n_step_buffer))
+        done: torch.Tensor = self.n_step_buffer[-1].done
+        return Transition(state, action, torch.tensor(reward, dtype=torch.float32), next_state, done)
 
 
 class DQNAgent:
@@ -183,7 +216,6 @@ class DQNAgent:
         self.memory = ReplayBuffer(args.memory_size)
 
         self.get_target_q = self._target_q_double if args.double else self._target_q_vanilla
-        self.skip_frames = args.skip_frames
         self.tau = args.tau
 
         self.early_stop = args.early_stop
