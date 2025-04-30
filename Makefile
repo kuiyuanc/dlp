@@ -1,4 +1,4 @@
-.PHONY: ssh pull
+.PHONY: ssh pull push
 
 from =
 to =
