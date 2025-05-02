@@ -18,6 +18,13 @@
     scp -r <source-file-path> <username>@<hostname>:<destination-file-path>
     ```
 
+- List available environment
+    ```bash
+    bash
+    source /opt/conda/miniconda3/bin/activate
+    conda info --envs
+    ```
+
 - Activate environment
     ```bash
     bash
