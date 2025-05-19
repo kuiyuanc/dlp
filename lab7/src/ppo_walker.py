@@ -6,21 +6,21 @@
 # Contributors: Wei Hung and Alison Wen
 # Instructor: Ping-Chun Hsieh
 
+import argparse
 import random
 from collections import deque
 from typing import Deque, List, Tuple
 
 import gymnasium as gym
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.distributions import Normal
-import argparse
 import wandb
+from torch.distributions import Normal
 from tqdm import tqdm
+
 
 def init_layer_uniform(layer: nn.Linear, init_w: float = 3e-3) -> nn.Linear:
     """Init uniform parameters on the single layer."""
@@ -43,12 +43,12 @@ class Actor(nn.Module):
 
         ############TODO#############
         # Remeber to initialize the layer weights
-        
+
         #############################
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Forward method implementation."""
-        
+
         ############TODO#############
 
         #############################
@@ -63,20 +63,20 @@ class Critic(nn.Module):
 
         ############TODO#############
         # Remeber to initialize the layer weights
-        
+
         #############################
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Forward method implementation."""
-        
+
         ############TODO#############
 
         #############################
 
         return value
-    
-def compute_gae(
-    next_value: list, rewards: list, masks: list, values: list, gamma: float, tau: float) -> List:
+
+
+def compute_gae(next_value: list, rewards: list, masks: list, values: list, gamma: float, tau: float) -> List:
     """Compute gae."""
 
     ############TODO#############
@@ -84,7 +84,8 @@ def compute_gae(
     #############################
     return gae_returns
 
-# PPO updates the model several times(update_epoch) using the stacked memory. 
+
+# PPO updates the model several times(update_epoch) using the stacked memory.
 # By ppo_iter function, it can yield the samples of stacked memory by interacting a environment.
 def ppo_iter(
     update_epoch: int,
@@ -101,9 +102,15 @@ def ppo_iter(
     for _ in range(update_epoch):
         for _ in range(batch_size // mini_batch_size):
             rand_ids = np.random.choice(batch_size, mini_batch_size)
-            yield states[rand_ids, :], actions[rand_ids], values[rand_ids], log_probs[
-                rand_ids
-            ], returns[rand_ids], advantages[rand_ids]
+            yield (
+                states[rand_ids, :],
+                actions[rand_ids],
+                values[rand_ids],
+                log_probs[rand_ids],
+                returns[rand_ids],
+                advantages[rand_ids],
+            )
+
 
 class PPOAgent:
     """PPO Agent.
@@ -137,7 +144,7 @@ class PPOAgent:
         self.entropy_weight = args.entropy_weight
         self.seed = args.seed
         self.update_epoch = args.update_epoch
-        
+
         # device: cpu / gpu
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(self.device)
@@ -236,7 +243,7 @@ class PPOAgent:
             # actor_loss
             ############TODO#############
             # actor_loss = ?
-            
+
             #############################
 
             # critic_loss
@@ -244,7 +251,7 @@ class PPOAgent:
             # critic_loss = ?
 
             #############################
-            
+
             # train critic
             self.critic_optimizer.zero_grad()
             critic_loss.backward(retain_graph=True)
@@ -283,7 +290,9 @@ class PPOAgent:
             for _ in range(self.rollout_len):
                 self.total_step += 1
                 action = self.select_action(state)
-                action = action.reshape(self.action_dim,)
+                action = action.reshape(
+                    self.action_dim,
+                )
                 next_state, reward, done = self.step(action)
 
                 state = next_state
@@ -327,13 +336,15 @@ class PPOAgent:
         self.env.close()
 
         self.env = tmp_env
- 
+
+
 def seed_torch(seed):
     torch.manual_seed(seed)
     if torch.backends.cudnn.enabled:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
-        
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--wandb-run-name", type=str, default="walker-ppo-run")
@@ -342,14 +353,14 @@ if __name__ == "__main__":
     parser.add_argument("--discount-factor", type=float, default=0.99)
     parser.add_argument("--num-episodes", type=float, default=1000)
     parser.add_argument("--seed", type=int, default=77)
-    parser.add_argument("--entropy-weight", type=int, default=1e-2) # entropy can be disabled by setting this to 0
+    parser.add_argument("--entropy-weight", type=int, default=1e-2)  # entropy can be disabled by setting this to 0
     parser.add_argument("--tau", type=float, default=0.95)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--epsilon", type=int, default=0.2)
-    parser.add_argument("--rollout-len", type=int, default=2000)  
+    parser.add_argument("--rollout-len", type=int, default=2000)
     parser.add_argument("--update-epoch", type=float, default=10)
     args = parser.parse_args()
- 
+
     # environment
     env = gym.make("Walker2d-v4", render_mode="rgb_array")
     seed = 77
@@ -357,6 +368,6 @@ if __name__ == "__main__":
     np.random.seed(seed)
     seed_torch(seed)
     wandb.init(project="DLP-Lab7-PPO-Walker", name=args.wandb_run_name, save_code=True)
-    
+
     agent = PPOAgent(env, args)
     agent.train()

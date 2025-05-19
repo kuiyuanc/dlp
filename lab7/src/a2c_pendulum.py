@@ -7,18 +7,20 @@
 # Instructor: Ping-Chun Hsieh
 
 
+import argparse
 import random
+from typing import Tuple
+
 import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.distributions import Normal
-import argparse
 import wandb
+from torch.distributions import Normal
 from tqdm import tqdm
-from typing import Tuple
+
 
 def initialize_uniformly(layer: nn.Linear, init_w: float = 3e-3):
     """Initialize the weights and bias in [-init_w, init_w]."""
@@ -30,12 +32,12 @@ class Actor(nn.Module):
     def __init__(self, in_dim: int, out_dim: int):
         """Initialize."""
         super(Actor, self).__init__()
-        
+
         ############TODO#############
         # Remeber to initialize the layer weights
-        
+
         #############################
-        
+
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Forward method implementation."""
 
@@ -50,21 +52,21 @@ class Critic(nn.Module):
     def __init__(self, in_dim: int):
         """Initialize."""
         super(Critic, self).__init__()
-        
+
         ############TODO#############
         # Remeber to initialize the layer weights
-        
+
         #############################
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Forward method implementation."""
-        
+
         ############TODO#############
 
         #############################
 
         return value
-    
+
 
 class A2CAgent:
     """A2CAgent interacting with environment.
@@ -93,7 +95,7 @@ class A2CAgent:
         self.actor_lr = args.actor_lr
         self.critic_lr = args.critic_lr
         self.num_episodes = args.num_episodes
-        
+
         # device: cpu / gpu
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(self.device)
@@ -146,7 +148,7 @@ class A2CAgent:
         # Q_t   = r + gamma * V(s_{t+1})  if state != Terminal
         #       = r                       otherwise
         mask = 1 - done
-        
+
         ############TODO#############
         # value_loss = ?
         #############################
@@ -171,8 +173,8 @@ class A2CAgent:
         """Train the agent."""
         self.is_test = False
         step_count = 0
-        
-        for ep in tqdm(range(1, self.num_episodes)): 
+
+        for ep in tqdm(range(1, self.num_episodes)):
             actor_losses, critic_losses, scores = [], [], []
             state, _ = self.env.reset(seed=self.seed)
             score = 0
@@ -190,20 +192,19 @@ class A2CAgent:
                 score += reward
                 step_count += 1
                 # W&B logging
-                wandb.log({
-                    "step": step_count,
-                    "actor loss": actor_loss,
-                    "critic loss": critic_loss,
-                    }) 
+                wandb.log(
+                    {
+                        "step": step_count,
+                        "actor loss": actor_loss,
+                        "critic loss": critic_loss,
+                    }
+                )
                 # if episode ends
                 if done:
                     scores.append(score)
                     print(f"Episode {ep}: Total Reward = {score}")
                     # W&B logging
-                    wandb.log({
-                        "episode": ep,
-                        "return": score
-                        })  
+                    wandb.log({"episode": ep, "return": score})
 
     def test(self, video_folder: str):
         """Test the agent."""
@@ -228,12 +229,12 @@ class A2CAgent:
 
         self.env = tmp_env
 
+
 def seed_torch(seed):
     torch.manual_seed(seed)
     if torch.backends.cudnn.enabled:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
-
 
 
 if __name__ == "__main__":
@@ -244,9 +245,9 @@ if __name__ == "__main__":
     parser.add_argument("--discount-factor", type=float, default=0.9)
     parser.add_argument("--num-episodes", type=float, default=1000)
     parser.add_argument("--seed", type=int, default=77)
-    parser.add_argument("--entropy-weight", type=int, default=1e-2) # entropy can be disabled by setting this to 0
+    parser.add_argument("--entropy-weight", type=int, default=1e-2)  # entropy can be disabled by setting this to 0
     args = parser.parse_args()
-    
+
     # environment
     env = gym.make("Pendulum-v1", render_mode="rgb_array")
     seed = 77
@@ -254,6 +255,6 @@ if __name__ == "__main__":
     np.random.seed(seed)
     seed_torch(seed)
     wandb.init(project="DLP-Lab7-A2C-Pendulum", name=args.wandb_run_name, save_code=True)
-    
+
     agent = A2CAgent(env, args)
     agent.train()
