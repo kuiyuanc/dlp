@@ -176,6 +176,7 @@ class PPOAgent:
         print(self.device)
 
         # networks
+        assert isinstance(env.observation_space, gym.spaces.Box) and isinstance(env.action_space, gym.spaces.Box)
         self.obs_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.shape[0]
         self.actor = Actor(self.obs_dim, self.action_dim).to(self.device)
@@ -201,13 +202,13 @@ class PPOAgent:
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
         """Select an action from the input state."""
-        state = torch.FloatTensor(state).to(self.device)
-        action, dist = self.actor(state)
+        state_tensor = torch.FloatTensor(state).to(self.device)
+        action, dist = self.actor(state_tensor)
         selected_action = dist.mean if self.is_test else action
 
         if not self.is_test:
-            value = self.critic(state)
-            self.states.append(state)
+            value = self.critic(state_tensor)
+            self.states.append(state_tensor)
             self.actions.append(selected_action)
             self.values.append(value)
             self.log_probs.append(dist.log_prob(selected_action))
@@ -219,6 +220,7 @@ class PPOAgent:
         next_state, reward, terminated, truncated, _ = self.env.step(action)
         done = terminated or truncated
         next_state = np.reshape(next_state, (1, -1)).astype(np.float64)
+        assert isinstance(reward, np.ndarray)
         reward = np.reshape(reward, (1, -1)).astype(np.float64)
         done = np.reshape(done, (1, -1))
 
@@ -230,8 +232,8 @@ class PPOAgent:
 
     def update_model(self, next_state: np.ndarray) -> Tuple[float, float]:
         """Update the model by gradient descent."""
-        next_state = torch.FloatTensor(next_state).to(self.device)
-        next_value = self.critic(next_state)
+        next_state_tensor = torch.FloatTensor(next_state).to(self.device)
+        next_value = self.critic(next_state_tensor)
 
         returns = compute_gae(
             next_value,
