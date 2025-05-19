@@ -314,7 +314,7 @@ class PPOAgent:
         scores = []
         score = 0
         episode_count = 0
-        for ep in tqdm(range(1, self.num_episodes)):
+        for ep in tqdm(range(1, self.num_episodes + 1)):
             score = 0
             print("\n")
             for _ in range(self.rollout_len):

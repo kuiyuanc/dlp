@@ -174,7 +174,7 @@ class A2CAgent:
         self.is_test = False
         step_count = 0
 
-        for ep in tqdm(range(1, self.num_episodes)):
+        for ep in tqdm(range(1, self.num_episodes + 1)):
             actor_losses, critic_losses, scores = [], [], []
             state, _ = self.env.reset(seed=self.seed)
             score = 0
