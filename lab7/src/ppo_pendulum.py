@@ -76,14 +76,20 @@ class Critic(nn.Module):
 
         ############TODO#############
         # Remeber to initialize the layer weights
-
+        self.net = nn.Sequential(
+            init_layer_uniform(nn.Linear(in_dim, 64)),
+            nn.ReLU(),
+            init_layer_uniform(nn.Linear(64, 64)),
+            nn.ReLU(),
+            init_layer_uniform(nn.Linear(64, 1)),
+        )
         #############################
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Forward method implementation."""
 
         ############TODO#############
-
+        value = self.net(state)
         #############################
 
         return value
