@@ -214,7 +214,7 @@ class PPOAgent:
 
         return selected_action.cpu().detach().numpy()
 
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, np.float64, bool]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Take an action and return the response of the env."""
         next_state, reward, terminated, truncated, _ = self.env.step(action)
         done = terminated or truncated
