@@ -99,7 +99,14 @@ def compute_gae(next_value: torch.Tensor, rewards: list, masks: list, values: li
     """Compute gae."""
 
     ############TODO#############
-
+    gae_returns = []
+    gae = 0
+    for reward, mask, value in reversed(tuple(zip(rewards, masks, values))):
+        delta = reward + gamma * next_value * mask - value
+        gae = delta + gamma * tau * gae
+        gae_returns.append(gae + value)
+        next_value = value
+    gae_returns.reverse()
     #############################
     return gae_returns
 
