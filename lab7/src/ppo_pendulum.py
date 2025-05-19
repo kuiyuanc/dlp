@@ -43,14 +43,27 @@ class Actor(nn.Module):
 
         ############TODO#############
         # Remeber to initialize the layer weights
-
+        self.net = nn.Sequential(
+            init_layer_uniform(nn.Linear(in_dim, 64)),
+            nn.ReLU(),
+            init_layer_uniform(nn.Linear(64, 64)),
+            nn.ReLU(),
+        )
+        self.mean = init_layer_uniform(nn.Linear(64, out_dim))
+        self.log_std = init_layer_uniform(nn.Linear(64, out_dim))
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
         #############################
 
     def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.distributions.Distribution]:
         """Forward method implementation."""
 
         ############TODO#############
-
+        latent = self.net(state)
+        mean = self.mean(latent)
+        std = self.log_std(latent).clamp_(self.log_std_min, self.log_std_max).exp()
+        dist = Normal(mean, std)
+        action = dist.sample()
         #############################
 
         return action, dist
