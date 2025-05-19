@@ -46,7 +46,7 @@ class Actor(nn.Module):
 
         #############################
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.distributions.Distribution]:
         """Forward method implementation."""
 
         ############TODO#############
@@ -76,7 +76,7 @@ class Critic(nn.Module):
         return value
 
 
-def compute_gae(next_value: list, rewards: list, masks: list, values: list, gamma: float, tau: float) -> List:
+def compute_gae(next_value: torch.Tensor, rewards: list, masks: list, values: list, gamma: float, tau: float) -> List:
     """Compute gae."""
 
     ############TODO#############

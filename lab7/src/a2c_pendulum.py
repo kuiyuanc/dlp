@@ -38,7 +38,7 @@ class Actor(nn.Module):
 
         #############################
 
-    def forward(self, state: torch.Tensor) -> torch.Tensor:
+    def forward(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.distributions.Distribution]:
         """Forward method implementation."""
 
         ############TODO#############
