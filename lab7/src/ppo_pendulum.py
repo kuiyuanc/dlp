@@ -176,10 +176,10 @@ class PPOAgent:
         print(self.device)
 
         # networks
-        obs_dim = env.observation_space.shape[0]
-        action_dim = env.action_space.shape[0]
-        self.actor = Actor(obs_dim, action_dim).to(self.device)
-        self.critic = Critic(obs_dim).to(self.device)
+        self.obs_dim = env.observation_space.shape[0]
+        self.action_dim = env.action_space.shape[0]
+        self.actor = Actor(self.obs_dim, self.action_dim).to(self.device)
+        self.critic = Critic(self.obs_dim).to(self.device)
 
         # optimizer
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.001)
