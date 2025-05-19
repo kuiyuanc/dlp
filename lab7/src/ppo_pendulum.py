@@ -271,13 +271,15 @@ class PPOAgent:
             # actor_loss
             ############TODO#############
             # actor_loss = ?
-
+            surrogate1 = ratio * adv
+            surrogate2 = ratio.clamp(1 - self.epsilon, 1 + self.epsilon) * adv
+            actor_loss = -torch.min(surrogate1, surrogate2).mean() - dist.entropy().mean() * self.entropy_weight
             #############################
 
             # critic_loss
             ############TODO#############
             # critic_loss = ?
-
+            critic_loss = F.mse_loss(self.critic(state), return_)
             #############################
 
             # train critic
