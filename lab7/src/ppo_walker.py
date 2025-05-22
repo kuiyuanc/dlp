@@ -9,10 +9,12 @@
 import argparse
 import random
 from collections import deque
+from pathlib import Path
 from typing import Deque, List, Tuple
 
 import gymnasium as gym
 import numpy as np
+import pretty_errors  # noqa: F401
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,13 +46,13 @@ class Actor(nn.Module):
         ############TODO#############
         # Remeber to initialize the layer weights
         self.net = nn.Sequential(
-            init_layer_uniform(nn.Linear(in_dim, 128)),
+            init_layer_uniform(nn.Linear(in_dim, 256)),
             nn.ReLU(),
-            init_layer_uniform(nn.Linear(128, 128)),
+            init_layer_uniform(nn.Linear(256, 256)),
             nn.ReLU(),
         )
-        self.mean = init_layer_uniform(nn.Linear(128, out_dim))
-        self.log_std = init_layer_uniform(nn.Linear(128, out_dim))
+        self.mean = init_layer_uniform(nn.Linear(256, out_dim))
+        self.log_std = init_layer_uniform(nn.Linear(256, out_dim))
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
         #############################
@@ -77,11 +79,11 @@ class Critic(nn.Module):
         ############TODO#############
         # Remeber to initialize the layer weights
         self.net = nn.Sequential(
-            init_layer_uniform(nn.Linear(in_dim, 64)),
+            init_layer_uniform(nn.Linear(in_dim, 256)),
             nn.ReLU(),
-            init_layer_uniform(nn.Linear(64, 64)),
+            init_layer_uniform(nn.Linear(256, 256)),
             nn.ReLU(),
-            init_layer_uniform(nn.Linear(64, 1)),
+            init_layer_uniform(nn.Linear(256, 1)),
         )
         #############################
 
@@ -183,8 +185,8 @@ class PPOAgent:
         self.critic = Critic(self.obs_dim).to(self.device)
 
         # optimizer
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=0.001)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=0.005)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=args.actor_lr)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=args.critic_lr)
 
         # memory for training
         self.states: List[torch.Tensor] = []
@@ -195,10 +197,18 @@ class PPOAgent:
         self.log_probs: List[torch.Tensor] = []
 
         # total steps count
-        self.total_step = 1
+        self.total_step = 0
 
         # mode: train / test
         self.is_test = False
+
+        # backup
+        self.save_dir: Path = args.save_dir
+        self.backup_freq: int = args.backup_freq
+        self.ewma_lambda: float = args.ewma_lambda
+        self.ewma_score: float = args.ewma_start
+        self.max_ewma_score: float = self.ewma_score
+        self.preempt: float = args.preempt
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
         """Select an action from the input state."""
@@ -220,7 +230,7 @@ class PPOAgent:
         next_state, reward, terminated, truncated, _ = self.env.step(action)
         done = terminated or truncated
         next_state = np.reshape(next_state, (1, -1)).astype(np.float64)
-        assert isinstance(reward, np.ndarray)
+        assert isinstance(reward, np.ndarray) or isinstance(reward, np.float64), type(reward)
         reward = np.reshape(reward, (1, -1)).astype(np.float64)
         done = np.reshape(done, (1, -1))
 
@@ -316,13 +326,10 @@ class PPOAgent:
         episode_count = 0
         for ep in tqdm(range(1, self.num_episodes + 1)):
             score = 0
-            print("\n")
             for _ in range(self.rollout_len):
                 self.total_step += 1
                 action = self.select_action(state)
-                action = action.reshape(
-                    self.action_dim,
-                )
+                action = action.reshape(self.action_dim)
                 next_state, reward, done = self.step(action)
 
                 state = next_state
@@ -334,38 +341,97 @@ class PPOAgent:
                     state, _ = self.env.reset(seed=self.seed)
                     state = np.expand_dims(state, axis=0)
                     scores.append(score)
-                    print(f"Episode {episode_count}: Total Reward = {score}")
+                    self.ewma_score = self.ewma_lambda * score + (1 - self.ewma_lambda) * self.ewma_score
                     score = 0
+
+                    wandb.log(
+                        {
+                            "Environment Step": self.total_step,
+                            "Train/Episode": episode_count,
+                            "EWMA Episodic Reward": self.ewma_score,
+                            "Train/Episodic Reward": scores[-1],
+                        },
+                        step=self.total_step,
+                    )
+
+                if self.total_step % self.backup_freq == 0:
+                    self.save(ep, scores[-1], actor_losses[-1], critic_losses[-1], str(self.total_step))
 
             actor_loss, critic_loss = self.update_model(next_state)
             actor_losses.append(actor_loss)
             critic_losses.append(critic_loss)
 
+            wandb.log(
+                {
+                    "Environment Step": self.total_step,
+                    "Train/Episode": episode_count,
+                    "Train/Episodic Reward": scores[-1],
+                    "Train/Actor Loss": actor_loss,
+                    "Train/Critic Loss": critic_loss,
+                },
+                step=self.total_step,
+            )
+
+            if self.ewma_score >= self.max_ewma_score:
+                self.save(ep, scores[-1], actor_loss, critic_loss, "best")
+                self.max_ewma_score = self.ewma_score
+                if self.ewma_score >= self.preempt:
+                    break
+
         # termination
         self.env.close()
 
-    def test(self, video_folder: str):
+    def test(self, video_folder: str, seed: int | None = None, record: bool = True, verbose: bool = False) -> float:
         """Test the agent."""
         self.is_test = True
 
         tmp_env = self.env
-        self.env = gym.wrappers.RecordVideo(self.env, video_folder=video_folder)
+        if record:
+            self.env = gym.wrappers.RecordVideo(self.env, video_folder=video_folder, name_prefix=str(seed))
 
-        state, _ = self.env.reset(seed=self.seed)
+        seed = seed or self.seed
+        state, _ = self.env.reset(seed=seed)
         done = False
         score = 0
 
         while not done:
             action = self.select_action(state)
+            action = action.reshape(self.action_dim)
             next_state, reward, done = self.step(action)
 
             state = next_state
             score += reward
-
-        print("score: ", score)
         self.env.close()
 
+        assert isinstance(score, np.ndarray), type(score)
+        if verbose:
+            print(f"seed: {seed:5d}", f"score: {score.item():8.2f}")
+
         self.env = tmp_env
+
+        return score.item()
+
+    def save(self, ep: int, score: float, actor_loss: float, critic_loss: float, name: str):
+        torch.save(
+            {
+                "actor": self.actor.state_dict(),
+                "critic": self.critic.state_dict(),
+                "Episode": ep,
+                "Environment Step": self.total_step,
+                "Episodic Reward": score,
+                "Actor Loss": actor_loss,
+                "Critic Loss": critic_loss,
+                "EWMA Episodic Reward": self.ewma_score,
+            },
+            self.save_dir / f"{name}.pt",
+        )
+
+    def load(self, name: str):
+        state_dict = torch.load(self.save_dir / f"{name}.pt", map_location=self.device, weights_only=False)
+        self.actor.load_state_dict(state_dict["actor"])
+        self.critic.load_state_dict(state_dict["critic"])
+        self.total_step = state_dict["Environment Step"]
+        self.ewma_score = state_dict["EWMA Episodic Reward"]
 
 
 def seed_torch(seed):
@@ -375,29 +441,99 @@ def seed_torch(seed):
         torch.backends.cudnn.deterministic = True
 
 
-if __name__ == "__main__":
+def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--wandb-run-name", type=str, default="walker-ppo-run")
+    parser.add_argument("--wandb-run-name", type=str, default=None)
     parser.add_argument("--actor-lr", type=float, default=3e-4)
     parser.add_argument("--critic-lr", type=float, default=3e-4)
     parser.add_argument("--discount-factor", type=float, default=0.99)
-    parser.add_argument("--num-episodes", type=float, default=1000)
+    parser.add_argument("--num-episodes", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=77)
-    parser.add_argument("--entropy-weight", type=int, default=1e-2)  # entropy can be disabled by setting this to 0
+    parser.add_argument("--entropy-weight", type=float, default=1e-2)  # entropy can be disabled by setting this to 0
     parser.add_argument("--tau", type=float, default=0.95)
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--epsilon", type=int, default=0.2)
+    parser.add_argument("--epsilon", type=float, default=0.2)
     parser.add_argument("--rollout-len", type=int, default=2000)
     parser.add_argument("--update-epoch", type=float, default=10)
-    args = parser.parse_args()
 
-    # environment
-    env = gym.make("Walker2d-v4", render_mode="rgb_array")
-    seed = 77
+    parser.add_argument("--ewma-start", type=int, default=0.0)
+    parser.add_argument("--ewma-lambda", type=float, default=0.05)
+    parser.add_argument("--preempt", type=float, default=2500.0)
+    parser.add_argument("--save-dir", type=str, default="weights/ppo_walker")
+    parser.add_argument("--video-dir", type=str, default="eval_videos/ppo_walker")
+    parser.add_argument("--backup-freq", type=int, default=500000)
+    parser.add_argument("--test", type=str, default=None)
+    parser.add_argument("--wandb-id", type=str, default=None)
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--api-key", type=str, default=None)
+
+    return parser.parse_args()
+
+
+def get_config(args: argparse.Namespace) -> dict:
+    config = vars(args).copy()
+    config.pop("wandb_run_name")
+    config.pop("num_episodes")
+    config.pop("ewma_start")
+    config.pop("ewma_lambda")
+    config.pop("save_dir")
+    config.pop("video_dir")
+    config.pop("backup_freq")
+    config.pop("test")
+    config.pop("wandb_id")
+    config.pop("verbose")
+    config.pop("api_key")
+    return config
+
+
+def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
     seed_torch(seed)
-    wandb.init(project="DLP-Lab7-PPO-Walker", name=args.wandb_run_name, save_code=True)
+
+
+if __name__ == "__main__":
+    args = get_args()
+    config = get_config(args)
+
+    # environment
+    env = gym.make("Walker2d-v4", render_mode="rgb_array", width=540, height=300)
+    # set_seed(77)
+
+    if args.test:
+        id = args.wandb_id
+    else:
+        wandb.login(key=args.api_key)
+        wandb.init(project="dll7", group="DLP-Lab7-PPO-Walker", name=args.wandb_run_name, config=config, save_code=True)
+
+        assert wandb.run
+        if not args.wandb_run_name:
+            wandb.run.name = wandb.run.id
+
+        id = wandb.run.id
+
+    args.save_dir = Path(args.save_dir) / id
+    args.video_dir = Path(args.video_dir) / id
+    args.save_dir.mkdir(parents=True, exist_ok=True)
+    args.video_dir.mkdir(parents=True, exist_ok=True)
 
     agent = PPOAgent(env, args)
-    agent.train()
+
+    if args.test:
+        agent.load(args.test)
+    else:
+        agent.train()
+        wandb.finish()
+
+    seeds = []
+    for seed in range(1, 1000):
+        if len(seeds) >= 20:
+            break
+        if agent.test(str(args.video_dir), seed=seed, record=False) >= 2500:
+            seeds.append(seed)
+
+    for seed in seeds:
+        score = agent.test(str(args.video_dir), seed=seed, verbose=args.verbose)
+
+    with open(args.video_dir / "seeds.txt", "w") as f:
+        f.write(str(seeds))
